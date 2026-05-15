@@ -11,20 +11,34 @@
     <div class="border rounded p-3 mb-4">
       <div class="text-base font-semibold text-gray-800 mb-2">Sensor Summary</div>
 
-      <template x-for="(groupData, groupName) in summary.groups" :key="groupName">
-        <div class="mb-2">
-          <div class="flex justify-between items-center">
-            <span class="font-semibold" x-text="`Group ${groupName}`"></span>
-            <span class="font-bold" :class="groupData.state === 'idle' ? 'text-gray-500' : 'text-green-700'"
-              x-text="groupData.state"></span>
-          </div>
-          <div class="text-xs text-gray-600">
-            P1: <span x-text="groupData.active_positions?.[1] ? 'on' : 'off'"></span>
-            |
-            P2: <span x-text="groupData.active_positions?.[2] ? 'on' : 'off'"></span>
+      <template x-for="(deviceData, deviceName) in summaryByDevice" :key="deviceName">
+        <div class="mb-3 border-b border-gray-200 pb-2 last:border-b-0 last:pb-0">
+          <div class="text-sm font-bold text-gray-900 mb-1" x-text="deviceName"></div>
+
+          <template x-for="(groupData, groupName) in deviceData.groups" :key="`${deviceName}-${groupName}`">
+            <div class="mb-2">
+              <div class="flex justify-between items-center">
+                <span class="font-semibold" x-text="`Group ${groupName}`"></span>
+                <span class="font-bold" :class="groupData.state === 'idle' ? 'text-gray-500' : 'text-green-700'"
+                  x-text="groupData.state"></span>
+              </div>
+              <div class="text-xs text-gray-600">
+                P1: <span x-text="groupData.active_positions?.[1] ? 'on' : 'off'"></span>
+                |
+                P2: <span x-text="groupData.active_positions?.[2] ? 'on' : 'off'"></span>
+              </div>
+            </div>
+          </template>
+
+          <div class="text-xs text-gray-500" x-show="Object.keys(deviceData.groups || {}).length === 0">
+            No groups
           </div>
         </div>
       </template>
+
+      <div class="text-xs text-gray-500" x-show="Object.keys(summaryByDevice).length === 0">
+        No devices summary yet
+      </div>
     </div>
 
     <!-- Clear Button Form -->
@@ -41,10 +55,7 @@
   function eventsSummary() {
     return {
       tagCount: 0,
-      summary: {
-        groups: {},
-        sensors: {},
-      },
+      summaryByDevice: {},
       loading: false,
       pollHandle: null,
       visibilityHandler: null,
@@ -72,10 +83,7 @@
           ]);
 
           this.tagCount = tagData.count || 0;
-          this.summary = {
-            groups: summaryData.groups || {},
-            sensors: summaryData.sensors || {},
-          };
+          this.summaryByDevice = summaryData || {};
         } catch (error) {
           console.error("Error loading events summary:", error);
         } finally {

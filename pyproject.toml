@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "x-bridge"
-version = "8.1.0"
+version = "8.1.1"
 description = "Conector RFID SMARTX"
 authors = ["Gabriel Henrique Pascon <gh.pascon@gmail.com>"]
 license = "MIT"

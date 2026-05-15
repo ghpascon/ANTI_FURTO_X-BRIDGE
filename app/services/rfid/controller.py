@@ -16,40 +16,44 @@ class Controller:
 		self.tags = tags
 		self.devices = devices
 		self.integration = integration
-		self.groups = {
-			'A': {
-				'antennas': [1, 2],
-				'state': 'idle',
-				'activity_token': 0,
-				'reset_task': None,
-				'active_positions': {
-					1: False,
-					2: False,
-				},
-			},
-			'B': {
-				'antennas': [3, 4],
-				'state': 'idle',
-				'activity_token': 0,
-				'reset_task': None,
-				'active_positions': {
-					1: False,
-					2: False,
-				},
-			},
-		}
+		# Estados por device
+		self.devices_states = {}
+		# Mapping global
 		self.sensor_mapping = {
 			's0': {'group': 'A', 'position': 1},
 			's1': {'group': 'A', 'position': 2},
 			's2': {'group': 'B', 'position': 1},
 			's3': {'group': 'B', 'position': 2},
 		}
-		self.sensors_states = {
-			's0': False,
-			's1': False,
-			's2': False,
-			's3': False,
-		}
+
+	def _get_or_create_device_state(self, name):
+		if name not in self.devices_states:
+			self.devices_states[name] = {
+				'inventory_running': False,
+				'groups': {
+					'A': {
+						'antennas': [1, 2],
+						'state': 'idle',
+						'activity_token': 0,
+						'reset_task': None,
+						'active_positions': {1: False, 2: False},
+					},
+					'B': {
+						'antennas': [3, 4],
+						'state': 'idle',
+						'activity_token': 0,
+						'reset_task': None,
+						'active_positions': {1: False, 2: False},
+					},
+				},
+				'sensors_states': {
+					's0': False,
+					's1': False,
+					's2': False,
+					's3': False,
+				},
+			}
+		return self.devices_states[name]
 
 	# [ EVENTS ]
 	def on_event(self, name: str, event_type: str, event_data):
@@ -71,38 +75,60 @@ class Controller:
 	def on_stop(self, device: str):
 		pass
 
+	def start_reading_device(self, device_name: str):
+		asyncio.create_task(self.devices.start_inventory(name=device_name))
+
+	def stop_reading_device(self, device_name: str):
+		asyncio.create_task(self.devices.stop_inventory(name=device_name))
+
+	def _sync_device_inventory_state(self, device_name: str):
+		device_state = self._get_or_create_device_state(device_name)
+		groups = device_state.get('groups', {})
+		has_active_group = any(group.get('state') != 'idle' for group in groups.values())
+		is_running = device_state.get('inventory_running', False)
+
+		if has_active_group and not is_running:
+			self.start_reading_device(device_name)
+			device_state['inventory_running'] = True
+			logging.info(f'Device {device_name} inventory: started')
+		elif not has_active_group and is_running:
+			self.stop_reading_device(device_name)
+			device_state['inventory_running'] = False
+			logging.info(f'Device {device_name} inventory: stopped')
+
 	# [ Tag Events ]
-	def on_new_tag(self, name: str, tag: dict):
-		logging.info(f'[ TAG ] {name} - {tag}')
+	def on_new_tag(self, device_name: str, tag: dict):
+		logging.info(f'[ TAG ] {device_name} - {tag}')
 		tag['passed'] = 'idle'
-		self.define_tag_state(tag)
+		self.define_tag_state(device_name, tag)
 		# asyncio.create_task(self.integration.on_tag_integration(tag=tag))
 
-	def on_existing_tag(self, name: str, tag: dict):
+	def on_existing_tag(self, device_name: str, tag: dict):
 		# if settings.ALWAYS_SEND:
-		# 	asyncio.create_task(self.integration.on_tag_integration(tag=tag))
-		self.define_tag_state(tag)
+		#     asyncio.create_task(self.integration.on_tag_integration(tag=tag))
+		self.define_tag_state(device_name, tag)
 
-	def define_tag_state(self, tag: dict):
+	def define_tag_state(self, device_name: str, tag: dict):
 		if not tag.get('passed') == 'idle':
 			return
 		ant = tag.get('ant')
-		a_group = self.groups.get('A').get('antennas')
-		b_group = self.groups.get('B').get('antennas')
+		device_state = self._get_or_create_device_state(device_name)
+		a_group = device_state['groups'].get('A').get('antennas')
+		b_group = device_state['groups'].get('B').get('antennas')
 		if ant in a_group:
-			a_state = self.groups.get('A').get('state')
+			a_state = device_state['groups'].get('A').get('state')
 			if a_state == 'idle':
 				return
 			tag['passed'] = a_state
 		elif ant in b_group:
-			b_state = self.groups.get('B').get('state')
+			b_state = device_state['groups'].get('B').get('state')
 			if b_state == 'idle':
 				return
 			tag['passed'] = b_state
 
 	# [ Sensor Events ]
 	def treat_sensor_event(self, name: str, data: str):
-		# DECODE DATA
+		device_state = self._get_or_create_device_state(name)
 		sensor_info = data.split(';')
 		for info in sensor_info:
 			if ':' not in info:
@@ -115,7 +141,7 @@ class Controller:
 			except ValueError:
 				value = False
 
-			self.sensors_states[sensor] = value
+			device_state['sensors_states'][sensor] = value
 
 			# UPDATE GROUP STATE
 			sensor_data = self.sensor_mapping.get(sensor)
@@ -124,16 +150,18 @@ class Controller:
 				continue
 			asyncio.create_task(
 				self.process_group_sensor_event(
+					name,
 					sensor_data.get('group'),
 					sensor_data.get('position'),
 					value,
 				)
 			)
 
-	def set_group_state(self, group_name: str, state: str):
-		group = self.groups.get(group_name)
+	def set_group_state(self, device_name: str, group_name: str, state: str):
+		device_state = self._get_or_create_device_state(device_name)
+		group = device_state['groups'].get(group_name)
 		if group is None:
-			logging.warning(f'Unknown group: {group_name}')
+			logging.warning(f'Unknown group: {group_name} for device {device_name}')
 			return
 
 		previous_state = group.get('state', 'idle')
@@ -141,29 +169,26 @@ class Controller:
 			return
 
 		group['state'] = state
-		logging.info(f'Group {group_name} state changed: {previous_state} -> {state}')
-		# start/stop reading based on state
-		if (
-			self.groups.get('A').get('state') == 'idle'
-			and self.groups.get('B').get('state') == 'idle'
-		):
-			asyncio.create_task(self.devices.stop_inventory_all())
-		else:
-			asyncio.create_task(self.devices.start_inventory_all())
+		logging.info(
+			f'Device {device_name} - Group {group_name} state changed: {previous_state} -> {state}'
+		)
+		self._sync_device_inventory_state(device_name)
 
-	async def process_group_sensor_event(self, group_name: str, position: int, is_active: bool):
-		if group_name not in self.groups:
-			logging.warning(f'Unknown group: {group_name}')
+	async def process_group_sensor_event(
+		self, device_name: str, group_name: str, position: int, is_active: bool
+	):
+		device_state = self._get_or_create_device_state(device_name)
+		if group_name not in device_state['groups']:
+			logging.warning(f'Unknown group: {group_name} for device {device_name}')
 			return
-		group = self.groups[group_name]
+		group = device_state['groups'][group_name]
 		active_positions = group.get('active_positions', {})
 		was_all_inactive = not any(active_positions.values())
 		active_positions[position] = is_active
 
 		if is_active and group.get('state') == 'idle':
-			# Fora de idle o grupo nao muda para in/out; so pode voltar para idle.
 			next_state = 'in' if position == 1 else 'out'
-			self.set_group_state(group_name, next_state)
+			self.set_group_state(device_name, group_name, next_state)
 
 		all_inactive = not any(active_positions.values())
 
@@ -175,7 +200,6 @@ class Controller:
 			group['reset_task'] = None
 			return
 
-		# Se ja estava com todos sensores inativos, mantem o timer atual sem reiniciar.
 		if was_all_inactive and reset_task and not reset_task.done():
 			return
 
@@ -186,11 +210,12 @@ class Controller:
 			reset_task.cancel()
 
 		group['reset_task'] = asyncio.create_task(
-			self._set_group_idle_after_timeout(group_name, token)
+			self._set_group_idle_after_timeout(device_name, group_name, token)
 		)
 
-	async def _set_group_idle_after_timeout(self, group_name: str, token: int):
-		group = self.groups.get(group_name)
+	async def _set_group_idle_after_timeout(self, device_name: str, group_name: str, token: int):
+		device_state = self._get_or_create_device_state(device_name)
+		group = device_state['groups'].get(group_name)
 		if group is None:
 			return
 
@@ -205,19 +230,22 @@ class Controller:
 		if any(group.get('active_positions', {}).values()):
 			return
 
-		self.set_group_state(group_name, 'idle')
+		self.set_group_state(device_name, group_name, 'idle')
 		group['reset_task'] = None
 
 	def get_summary(self):
-		groups_summary = {}
-		for group_name, group_data in self.groups.items():
-			groups_summary[group_name] = {
-				'antennas': group_data.get('antennas', []),
-				'state': group_data.get('state', 'idle'),
-				'active_positions': group_data.get('active_positions', {}),
+		# Retorna o status de todos os devices
+		summary = {}
+		for device_name, device_state in self.devices_states.items():
+			groups_summary = {}
+			for group_name, group_data in device_state['groups'].items():
+				groups_summary[group_name] = {
+					'antennas': group_data.get('antennas', []),
+					'state': group_data.get('state', 'idle'),
+					'active_positions': group_data.get('active_positions', {}),
+				}
+			summary[device_name] = {
+				'groups': groups_summary,
+				'sensors': device_state['sensors_states'],
 			}
-
-		return {
-			'groups': groups_summary,
-			'sensors': self.sensors_states,
-		}
+		return summary
