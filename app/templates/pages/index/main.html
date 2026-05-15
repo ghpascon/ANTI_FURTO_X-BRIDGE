@@ -5,13 +5,7 @@
     {% include 'includes/_events.html' %} {% include 'includes/_devices.html' %}
   </div>
   <div class="lg:col-span-9">
-    {% if table == "complete" %} 
     {% include 'includes/_tags_all.html' %} 
-    {% elif table == "gtin" %} 
-    {% include 'includes/_tags_gtin.html' %} 
-    {% else %} 
-    {% include 'includes/_tags.html' %} 
-    {% endif %}
   </div>
 </div>
 {% endblock %}

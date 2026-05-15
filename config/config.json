@@ -10,5 +10,8 @@
     "WEBHOOK_URL": null,
     "DATABASE_URL": null,
     "XTRACK_URL": null,
-    "PORT": 5000
+    "PORT": 5000,
+    "DISTANCE_THRESHOLD": 500,
+    "SENSOR_IDLE_TIMEOUT": 0.5
+
 }

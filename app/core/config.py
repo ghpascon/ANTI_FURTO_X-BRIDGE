@@ -62,6 +62,9 @@ class Settings:
 
 		self.PORT: int = data.get('PORT', 5000)
 
+		self.DISTANCE_THRESHOLD: int = data.get('DISTANCE_THRESHOLD', 500)
+		self.SENSOR_IDLE_TIMEOUT: float = data.get('SENSOR_IDLE_TIMEOUT', 0.5)
+
 	def get_current_settings(self):
 		return {
 			key: value

@@ -56,7 +56,6 @@ class RfidManager:
 		if event_type == 'tag':
 			self.on_tag(name=name, tag_data=event_data)
 		else:
-			logging.info(f'[ EVENT ] {name} - {event_type}: {event_data}')
 			if event_type == 'reading':
 				self.on_start(name=name) if event_data else self.on_stop(name=name)
 
@@ -67,12 +66,11 @@ class RfidManager:
 
 		# NEW TAG
 		if new_tag:
-			logging.info(f'[ TAG ] {name} - Tag Data: {tag}')
-			self.controller.on_new_tag(tag=tag)
+			self.controller.on_new_tag(name=name, tag=tag)
 
 		# EXISTING TAG
 		elif tag is not None:
-			self.controller.on_existing_tag(tag=tag)
+			self.controller.on_existing_tag(name=name, tag=tag)
 		return new_tag, tag
 
 	def on_start(self, name: str):

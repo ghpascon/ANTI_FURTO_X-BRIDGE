@@ -25,3 +25,11 @@ async def controller_info():
 		else:
 			info[name] = type(attr).__name__
 	return info
+
+
+@router.get(
+	'/get_summary',
+	summary='Get RFID summary',
+)
+async def get_summary():
+	return rfid_manager.controller.get_summary()

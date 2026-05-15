@@ -8,6 +8,25 @@
       <span class="text-3xl font-bold text-blue-600" x-text="tagCount"></span>
     </div>
 
+    <div class="border rounded p-3 mb-4">
+      <div class="text-base font-semibold text-gray-800 mb-2">Sensor Summary</div>
+
+      <template x-for="(groupData, groupName) in summary.groups" :key="groupName">
+        <div class="mb-2">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold" x-text="`Group ${groupName}`"></span>
+            <span class="font-bold" :class="groupData.state === 'idle' ? 'text-gray-500' : 'text-green-700'"
+              x-text="groupData.state"></span>
+          </div>
+          <div class="text-xs text-gray-600">
+            P1: <span x-text="groupData.active_positions?.[1] ? 'on' : 'off'"></span>
+            |
+            P2: <span x-text="groupData.active_positions?.[2] ? 'on' : 'off'"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+
     <!-- Clear Button Form -->
     <form action="{{ url_for('clear_tags') }}" method="post" class="w-full" target="hidden_iframe">
       <button type="submit" :disabled="loading"
@@ -22,20 +41,24 @@
   function eventsSummary() {
     return {
       tagCount: 0,
+      summary: {
+        groups: {},
+        sensors: {},
+      },
       loading: false,
       pollHandle: null,
       visibilityHandler: null,
 
       async init() {
-        await this.loadTagCount();
-        TemplateUtils.bindVisibilityPolling(this, this.loadTagCount, 1000);
+        await this.loadEventsSummary();
+        TemplateUtils.bindVisibilityPolling(this, this.loadEventsSummary, 1000);
       },
 
       destroy() {
         TemplateUtils.unbindVisibilityPolling(this);
       },
 
-      async loadTagCount() {
+      async loadEventsSummary() {
         if (this.loading) {
           return;
         }
@@ -43,10 +66,18 @@
         this.loading = true;
 
         try {
-          const data = await TemplateUtils.fetchJson("{{ url_for('get_tag_count') }}");
-          this.tagCount = data.count || 0;
+          const [tagData, summaryData] = await Promise.all([
+            TemplateUtils.fetchJson("{{ url_for('get_tag_count') }}"),
+            TemplateUtils.fetchJson("{{ url_for('get_summary') }}"),
+          ]);
+
+          this.tagCount = tagData.count || 0;
+          this.summary = {
+            groups: summaryData.groups || {},
+            sensors: summaryData.sensors || {},
+          };
         } catch (error) {
-          console.error("Error loading tag count:", error);
+          console.error("Error loading events summary:", error);
         } finally {
           this.loading = false;
         }

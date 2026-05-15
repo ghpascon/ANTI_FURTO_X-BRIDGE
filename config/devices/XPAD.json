@@ -5,9 +5,9 @@
     "BAUDRATE": 115200,
     "VID": 1,
     "PID": 1,
-    "BUZZER": true,
+    "BUZZER": false,
     "SESSION": 0,
-    "START_READING": true,
+    "START_READING": false,
     "READ_POWER": 24,
     "PROTECTED_INVENTORY_ACTIVE": false,
     "PROTECTED_INVENTORY_PASSWORD": "12345678"
