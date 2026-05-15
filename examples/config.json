@@ -1,0 +1,17 @@
+{
+  "TITLE": "X-BRIDGE",
+  "LOG_PATH": "Logs",
+  "STORAGE_DAYS": 1,
+  "OPEN_BROWSER": true,
+  "BEEP": false,
+  "CLEAR_OLD_TAGS_INTERVAL": 10,
+  "TAG_PREFIX": "0001",
+  "ALWAYS_SEND": false,
+  "_DATABASE_URL_MYSQL": "mysql+pymysql://root:admin@localhost:3306/lib_smtx",
+  "_DATABASE_URL_SQLITE": "sqlite:///lib_smtx.db",
+  "_DATABASE_URL_POSTGRESQL": "postgresql+psycopg2://app_user:app_password@localhost:5432/lib_smartx",
+  "DATABASE_URL": "mysql+pymysql://root:admin@localhost:3306/smartx",
+  "WEBHOOK_URL": "http://localhost:5001",
+  "XTRACK_URL": "https://demo.smtx.com.br:6100/req",
+  "PORT": 5000
+}

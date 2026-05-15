@@ -1,0 +1,254 @@
+{% extends "base.html" %} {% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="max-w-3xl mx-auto">
+    <div class="bg-white rounded-lg shadow border p-6" x-data="writeEpcForm()">
+      <h2 class="text-xl font-bold mb-4 text-gray-900">Write EPC to Tag</h2>
+
+      <form @submit.prevent="submitForm" class="space-y-4">
+        <!-- Device & Target Type -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Device <span class="text-red-500">*</span>
+            </label>
+            <select
+              x-model="formData.device_name"
+              @focus="loadDevices"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            >
+              <option value="">Select device</option>
+              <template x-for="device in devices" :key="device">
+                <option :value="device" x-text="device"></option>
+              </template>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Target By <span class="text-red-500">*</span>
+            </label>
+            <select
+              x-model="formData.target_identifier"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            >
+              <option value="epc">EPC</option>
+              <option value="tid">TID</option>
+              <option value="none">No Filter</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Target Value -->
+        <div x-show="formData.target_identifier !== 'none'">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Target Value <span class="text-red-500">*</span>
+          </label>
+          <select
+            x-model="formData.target_value"
+            @focus="loadTagsForIdentifier"
+            :required="formData.target_identifier !== 'none'"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+          >
+            <option value="">Select target</option>
+            <template x-for="tag in availableTags" :key="tag">
+              <option :value="tag" x-text="tag"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- New EPC & Password -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              New EPC <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              x-model="formData.new_epc"
+              required
+              maxlength="24"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+              placeholder="24 hex chars"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Password <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              x-model="formData.password"
+              required
+              maxlength="8"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+              placeholder="8 hex chars"
+            />
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex gap-3 pt-2">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+          >
+            <span x-text="loading ? 'Writing...' : 'Write EPC'"></span>
+          </button>
+          <button
+            type="button"
+            @click="resetForm"
+            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors text-sm"
+          >
+            Reset
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="mt-4">{% include 'includes/_tags_all.html' %}</div>
+</div>
+
+<script>
+  function writeEpcForm() {
+    return {
+      loading: false,
+      devices: [],
+      availableTags: [],
+      devicesLoaded: false,
+      tagsLoaded: false,
+      formData: {
+        device_name: "",
+        target_identifier: "epc",
+        target_value: "",
+        new_epc: "",
+        password: "00000000",
+      },
+
+      init() {
+        this.$watch("formData.target_identifier", () => {
+          this.formData.target_value = "";
+          this.availableTags = [];
+          this.tagsLoaded = false;
+        });
+      },
+
+      async loadDevices() {
+        if (this.devicesLoaded) return;
+
+        try {
+          const res = await fetch("{{ url_for('get_devices') }}");
+          if (res.ok) {
+            const data = await res.json();
+            this.devices = Array.isArray(data) ? data : data.devices || [];
+            this.devicesLoaded = true;
+          }
+        } catch (e) {
+          console.error("Error loading devices:", e);
+        }
+      },
+
+      async loadTagsForIdentifier() {
+        const key = this.formData.target_identifier;
+        if (key === "none") {
+          this.availableTags = [];
+          return;
+        }
+
+        if (this.tagsLoaded) return;
+
+        try {
+          const url =
+            key === "epc"
+              ? "{{ url_for('get_epcs') }}"
+              : "{{ url_for('get_tids') }}";
+
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            this.availableTags = Array.isArray(data) ? data : [];
+            this.tagsLoaded = true;
+          }
+        } catch (e) {
+          console.error("Error loading tags:", e);
+        }
+      },
+
+      async submitForm() {
+        this.loading = true;
+        try {
+          // Validate
+          if (!/^[0-9a-fA-F]{24}$/.test(this.formData.new_epc)) {
+            showAlert("New EPC must be 24 hex characters", "error");
+            return;
+          }
+          if (!/^[0-9a-fA-F]{8}$/.test(this.formData.password)) {
+            showAlert("Password must be 8 hex characters", "error");
+            return;
+          }
+          if (
+            this.formData.target_identifier === "epc" &&
+            this.formData.target_value &&
+            !/^[0-9a-fA-F]{24}$/.test(this.formData.target_value)
+          ) {
+            showAlert("Target EPC must be 24 hex characters", "error");
+            return;
+          }
+
+          // Prepare payload
+          const payload = {
+            target_identifier:
+              this.formData.target_identifier === "none"
+                ? null
+                : this.formData.target_identifier,
+            target_value:
+              this.formData.target_identifier === "none"
+                ? null
+                : this.formData.target_value || null,
+            new_epc: this.formData.new_epc,
+            password: this.formData.password,
+          };
+
+          // API call
+          const writeUrl =
+            "{{ url_for('write_epc', device_name='DEVICE_PLACEHOLDER') }}".replace(
+              "DEVICE_PLACEHOLDER",
+              encodeURIComponent(this.formData.device_name),
+            );
+
+          const res = await fetch(writeUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await res.json();
+          showAlert(
+            data.message ||
+              (res.ok ? "EPC written successfully!" : "Failed to write EPC"),
+            res.ok ? "success" : "error",
+          );
+        } catch (e) {
+          console.error("Error:", e);
+          showAlert("Error communicating with server", "error");
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      resetForm() {
+        this.formData = {
+          device_name: "",
+          target_identifier: "epc",
+          target_value: "",
+          new_epc: "",
+          password: "00000000",
+        };
+      },
+    };
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,20 @@
+<!-- Spacer for fixed footer -->
+<div class="h-8"></div>
+
+<footer
+  x-data="{ version: '' }"
+  x-init="fetch('{{ url_for('get_version') }}').then(r => r.json()).then(d => version = d.version)"
+  class="fixed bottom-0 right-0 bg-gray-900 text-white rounded-tl-lg shadow-lg"
+>
+  <div class="flex items-center space-x-2 px-3 py-2 text-xs">
+    <img
+      src="{{ url_for('static', path='images/logo.png') }}"
+      alt="SMARTX"
+      class="h-4 w-auto"
+    />
+    <span class="text-gray-300">
+      <span x-text="new Date().getFullYear()"></span> - SMARTX
+      <span x-show="version">v<span x-text="version"></span></span>
+    </span>
+  </div>
+</footer>

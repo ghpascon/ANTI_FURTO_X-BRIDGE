@@ -1,0 +1,226 @@
+<!-- Modal Component -->
+<div x-data="createDeviceModal()">
+  <div
+    x-show="showCreateDevice"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0 scale-95"
+    x-transition:enter-end="opacity-100 scale-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100 scale-100"
+    x-transition:leave-end="opacity-0 scale-95"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+    @keydown.escape.window="close()"
+    @click.self="close()"
+  >
+    <div
+      class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-3xl max-h-[90vh] overflow-auto p-8 relative animate-fadein"
+    >
+      <!-- Close Button -->
+      <button
+        @click="close()"
+        class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition-colors"
+        title="Close"
+        type="button"
+        aria-label="Close"
+      >
+        <svg
+          class="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+
+      <!-- Title -->
+      <h2
+        class="text-2xl font-bold mb-6 text-gray-800 text-center tracking-tight"
+      >
+        <span x-text="isEdit ? 'Edit Device' : 'Create Device'"></span>
+      </h2>
+
+      <!-- Form -->
+      <form @submit.prevent="submitForm">
+        <!-- Device Name -->
+        <div class="mb-5">
+          <label class="block text-sm font-semibold text-gray-700 mb-1"
+            >Device Name</label
+          >
+          <input
+            type="text"
+            x-model="deviceName"
+            required
+            :readonly="isEdit"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400 transition"
+            placeholder="Enter device name"
+            autocomplete="off"
+          />
+        </div>
+
+        <!-- Device Type (only show when not editing) -->
+        <template x-if="!isEdit">
+          <div class="mb-5">
+            <label class="block text-sm font-semibold text-gray-700 mb-1"
+              >Device Type</label
+            >
+            <select
+              x-model="deviceType"
+              @change="fetchConfigExample()"
+              required
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400 transition"
+            >
+              <option value="" disabled>Select type…</option>
+              <template x-for="type in deviceTypes" :key="type">
+                <option :value="type" x-text="type"></option>
+              </template>
+            </select>
+          </div>
+        </template>
+
+        <!-- JSON Config -->
+        <template x-if="formConfigJson">
+          <div class="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <label class="block text-sm font-semibold text-gray-700 mb-2"
+              >Configuration (JSON)</label
+            >
+            <textarea
+              x-model="formConfigJson"
+              rows="8"
+              class="w-full border border-gray-300 rounded px-2 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white"
+            ></textarea>
+            <div class="text-xs text-gray-500 mt-2">
+              Edit the JSON configuration. The field
+              <span class="font-mono">READER</span> will be set to the selected
+              device type when submitting.
+            </div>
+          </div>
+        </template>
+
+        <!-- Buttons -->
+        <div class="flex justify-end gap-2 mt-8">
+          <button
+            type="button"
+            @click="close()"
+            class="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 font-medium transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            :disabled="submitting"
+            class="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 font-semibold shadow-sm transition"
+          >
+            <span x-text="isEdit ? 'Update' : 'Create'"></span>
+          </button>
+        </div>
+
+        <!-- Error Message -->
+        <template x-if="error">
+          <div
+            class="mt-4 text-red-600 text-sm text-center font-medium"
+            x-text="error"
+          ></div>
+        </template>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener("alpine:init", () => {
+    Alpine.data("createDeviceModal", () => ({
+      showCreateDevice: false,
+      deviceName: "",
+      deviceType: "",
+      deviceTypes: [],
+      formConfigJson: "",
+      error: "",
+      submitting: false,
+      isEdit: false,
+
+      init() {
+        window.addEventListener("open-create-device", () => this.openCreate());
+        window.addEventListener("edit-device", (e) =>
+          this.openEdit(e.detail.name, e.detail.config),
+        );
+      },
+
+      close() {
+        this.showCreateDevice = false;
+      },
+
+      async openCreate() {
+        this.reset();
+        this.isEdit = false;
+        this.showCreateDevice = true;
+        await this.fetchDeviceTypes();
+      },
+
+      async openEdit(name, config) {
+        this.reset();
+        this.isEdit = true;
+        this.deviceName = name;
+        this.deviceType = config?.READER || "";
+        this.formConfigJson = JSON.stringify(config, null, 2);
+        this.showCreateDevice = true;
+        await this.fetchDeviceTypes();
+      },
+
+      reset() {
+        this.deviceName = "";
+        this.deviceType = "";
+        this.formConfigJson = "";
+        this.error = "";
+        this.submitting = false;
+      },
+
+      async fetchDeviceTypes() {
+        const res = await fetch('{{ url_for("get_device_types_list") }}');
+        if (res.ok) this.deviceTypes = await res.json();
+      },
+
+      async fetchConfigExample() {
+        if (!this.deviceType) return;
+        const res = await fetch(
+          '{{ url_for("get_device_config_example", device_name="__X__") }}'.replace(
+            "__X__",
+            this.deviceType,
+          ),
+        );
+        if (res.ok)
+          this.formConfigJson = JSON.stringify(await res.json(), null, 2);
+      },
+
+      async submitForm() {
+        try {
+          this.submitting = true;
+          let payload = JSON.parse(this.formConfigJson || "{}");
+
+          const url = this.isEdit
+            ? '{{ url_for("update_device", device_name="__X__") }}'
+            : '{{ url_for("create_device", device_name="__X__") }}';
+
+          const method = this.isEdit ? "PUT" : "POST";
+
+          const res = await fetch(url.replace("__X__", this.deviceName), {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) throw new Error("Request failed");
+          location.reload();
+        } catch (e) {
+          this.error = e.message;
+        } finally {
+          this.submitting = false;
+        }
+      },
+    }));
+  });
+</script>

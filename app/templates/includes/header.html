@@ -1,0 +1,151 @@
+<header class="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-black">
+  <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between items-center h-16 gap-4">
+      {# logo #}
+      <div class="flex items-center space-x-3 flex-shrink-0">
+        <img src="{{ url_for('static', path='images/smtx.png') }}" alt="" class="h-8 w-auto" />
+        <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">
+          {{title}}
+        </h1>
+      </div>
+
+      {# navbar #}
+      <nav class="hidden md:flex items-center space-x-4 lg:space-x-6 flex-shrink-0">
+        <a href="/"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Home</a>
+        <!-- ROUTES -->
+        <a href="/settings/devices"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Devices</a>
+        <a href="/settings/application"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Settings</a>
+        <a href="/write_page"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Write</a>
+        <a href="/protected_page"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Protected</a>
+        <a href="/gpo_page"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Gpo</a>
+        <a href="/logs"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Logs</a>
+        <!-- Report -->
+        <a href="{{ url_for('generate_table_report', table_name='tags') }}?limit=0" data-tag-report="true"
+          class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 hover:text-gray-900 hover:border-gray-400 font-medium text-sm lg:text-base whitespace-nowrap">Tag
+          Report</a>
+        <!-- DEV  -->
+        <a href="/docs"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Docs</a><a
+          href="/license"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">License</a>
+        <a href="/metrics"
+          class="text-gray-700 hover:text-gray-900 font-medium text-sm lg:text-base whitespace-nowrap">Metrics</a>
+      </nav>
+
+      {# Mobile menu button #}
+      <div class="md:hidden flex-shrink-0" x-data="{ open: false }">
+        <button @click="open = !open" class="text-gray-700 hover:text-gray-900 p-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
+        {# Mobile menu dropdown #}
+        <div x-show="open" @click.away="open = false"
+          class="absolute right-4 top-16 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-[150px]"
+          id="mobile-menu-dropdown">
+          <!-- Links will be cloned here by script -->
+        </div>
+      </div>
+      <script>
+        // Clone navbar links into mobile dropdown
+        document.addEventListener('DOMContentLoaded', function () {
+          function bindTagReportHandlers(scope) {
+            scope.querySelectorAll('a[data-tag-report="true"]').forEach(function (link) {
+              if (link.dataset.tagReportBound === 'true') {
+                return;
+              }
+
+              link.dataset.tagReportBound = 'true';
+              link.addEventListener('click', async function (event) {
+                event.preventDefault();
+
+                const endpoint = link.getAttribute('href');
+                if (!endpoint) {
+                  return;
+                }
+
+                try {
+                  const response = await fetch(endpoint, {
+                    headers: { 'Accept': 'application/json' }
+                  });
+
+                  if (!response.ok) {
+                    throw new Error('Failed to load report');
+                  }
+
+                  const payload = await response.json();
+                  const rows = Array.isArray(payload.data) ? payload.data : [];
+
+                  if (rows.length === 0) {
+                    alert('No tags found to export.');
+                    return;
+                  }
+
+                  const columns = Object.keys(rows[0]);
+                  const escapeCsvValue = function (value) {
+                    const text = String(value ?? '');
+                    return '"' + text.replace(/"/g, '""') + '"';
+                  };
+
+                  const csvLines = [columns.join(',')];
+                  rows.forEach(function (row) {
+                    const line = columns.map(function (column) {
+                      return escapeCsvValue(row[column]);
+                    }).join(',');
+                    csvLines.push(line);
+                  });
+
+                  const csvContent = csvLines.join('\n');
+                  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                  const downloadUrl = URL.createObjectURL(blob);
+                  const fileName = 'tags_report.csv';
+
+                  const downloadLink = document.createElement('a');
+                  downloadLink.href = downloadUrl;
+                  downloadLink.download = fileName;
+                  document.body.appendChild(downloadLink);
+                  downloadLink.click();
+                  downloadLink.remove();
+                  URL.revokeObjectURL(downloadUrl);
+                } catch (error) {
+                  console.error('Tag report export failed:', error);
+                  alert('Could not export tag report.');
+                }
+              });
+            });
+          }
+
+          const desktopNav = document.querySelector('nav.hidden.md\\:flex');
+          const mobileMenu = document.getElementById('mobile-menu-dropdown');
+          if (desktopNav && mobileMenu) {
+            // Remove any previous links
+            mobileMenu.innerHTML = '';
+            desktopNav.querySelectorAll('a').forEach(function (a) {
+              const link = document.createElement('a');
+              link.href = a.href;
+              link.textContent = a.textContent;
+              if (a.dataset.tagReport === 'true') {
+                link.dataset.tagReport = 'true';
+              }
+              link.className = 'block px-4 py-2 text-gray-700 hover:bg-gray-100';
+              mobileMenu.appendChild(link);
+            });
+          }
+
+          bindTagReportHandlers(document);
+        });
+      </script>
+    </div>
+  </div>
+  </div>
+</header>
+<!-- Spacer for fixed header -->
+<div class="h-16"></div>

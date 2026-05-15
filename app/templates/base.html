@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>{{ title }}</title>
+  <!-- Tailwind CSS CDN for development -->
+  <link rel="icon" type="image/png" href="/static/images/logo.png" />
+  <script src="/static/js/tailwind.js"></script>
+
+  <!-- Alpine.js from local static files -->
+  <script defer src="/static/js/alpine.js"></script>
+
+  <!-- Hidden iframe for posts without page reload -->
+  <iframe name="hidden_iframe" style="display: none"></iframe>
+</head>
+
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 text-gray-800 min-h-screen flex flex-col">
+  <!-- Fixed Header -->
+  {% include "includes/header.html" %}
+
+  <!-- Alerts System -->
+  {% include "includes/alerts.html" %} {% include "includes/_has_changes.html"
+  %}
+
+  <!-- Main Content Area -->
+  <main>{% block content %}{% endblock %}</main>
+
+  <!-- Fixed Footer -->
+  {% include "includes/footer.html" %}
+
+  <script>
+    window.TemplateUtils = {
+      async fetchJson(url, options = {}) {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        return response.json();
+      },
+
+      async fetchJsonIfChanged(url, previousPayload, options = {}) {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const payload = await response.text();
+        if (payload === previousPayload) {
+          return { changed: false, payload: previousPayload, data: null };
+        }
+
+        return {
+          changed: true,
+          payload,
+          data: JSON.parse(payload),
+        };
+      },
+
+      startPolling(component, callback, interval = 2000) {
+        if (component.pollHandle || document.hidden) {
+          return;
+        }
+
+        component.pollHandle = setInterval(() => callback.call(component), interval);
+      },
+
+      stopPolling(component) {
+        if (!component.pollHandle) {
+          return;
+        }
+
+        clearInterval(component.pollHandle);
+        component.pollHandle = null;
+      },
+
+      bindVisibilityPolling(component, callback, interval = 2000) {
+        component.visibilityHandler = () => {
+          if (document.hidden) {
+            this.stopPolling(component);
+            return;
+          }
+
+          callback.call(component);
+          this.startPolling(component, callback, interval);
+        };
+
+        document.addEventListener("visibilitychange", component.visibilityHandler);
+        this.startPolling(component, callback, interval);
+      },
+
+      unbindVisibilityPolling(component) {
+        this.stopPolling(component);
+
+        if (!component.visibilityHandler) {
+          return;
+        }
+
+        document.removeEventListener("visibilitychange", component.visibilityHandler);
+        component.visibilityHandler = null;
+      },
+    };
+  </script>
+</body>
+
+</html>

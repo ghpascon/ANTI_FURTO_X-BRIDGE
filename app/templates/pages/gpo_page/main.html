@@ -1,0 +1,203 @@
+{% extends "base.html" %} {% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-lg shadow border p-6" x-data="gpoForm()">
+      <h2 class="text-xl font-bold mb-4 text-gray-900">Control Device GPO</h2>
+
+      <form @submit.prevent="submitForm" class="space-y-4">
+        <!-- Device -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Device <span class="text-red-500">*</span>
+          </label>
+          <select
+            x-model="formData.device_name"
+            @focus="loadDevices"
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          >
+            <option value="">Select device</option>
+            <template x-for="device in devices" :key="device">
+              <option :value="device" x-text="device"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Pin, State, Control, Time -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Pin <span class="text-red-500">*</span></label
+            >
+            <input
+              type="number"
+              min="1"
+              max="8"
+              x-model.number="formData.pin"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >State <span class="text-red-500">*</span></label
+            >
+            <select
+              x-model="formData.state"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            >
+              <option :value="true">On</option>
+              <option :value="false">Off</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Control Mode</label
+            >
+            <select
+              x-model="formData.control"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            >
+              <option value="static">Static</option>
+              <option value="pulsed">Pulsed</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Time (ms)</label
+            >
+            <input
+              type="number"
+              min="1"
+              max="10000"
+              step="1"
+              x-model.number="formData.time"
+              :disabled="formData.control !== 'pulsed'"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              placeholder="1000"
+            />
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex gap-3 pt-2">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+          >
+            <span x-text="loading ? 'Sending...' : 'Send Command'"></span>
+          </button>
+          <button
+            type="button"
+            @click="resetForm"
+            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors text-sm"
+          >
+            Clear
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function gpoForm() {
+    return {
+      loading: false,
+      devices: [],
+      devicesLoaded: false,
+      formData: {
+        device_name: "",
+        pin: 1,
+        state: true,
+        control: "static",
+        time: 1000,
+      },
+
+      async loadDevices() {
+        if (this.devicesLoaded) return;
+        try {
+          const res = await fetch("{{ url_for('get_devices') }}");
+          if (res.ok) {
+            const data = await res.json();
+            this.devices = Array.isArray(data) ? data : data.devices || [];
+            this.devicesLoaded = true;
+          }
+        } catch (e) {
+          showAlert("Error loading devices", "error");
+        }
+      },
+
+      async submitForm() {
+        this.loading = true;
+        try {
+          if (!this.formData.device_name) {
+            showAlert("Please select a device", "error");
+            return;
+          }
+          if (!Number.isInteger(this.formData.pin) || this.formData.pin < 1) {
+            showAlert("Pin must be an integer >= 1", "error");
+            return;
+          }
+          if (
+            this.formData.control === "pulsed" &&
+            (!this.formData.time || this.formData.time < 1)
+          ) {
+            showAlert("Time must be set for pulsed mode", "error");
+            return;
+          }
+
+          const payload = {
+            pin: this.formData.pin,
+            state: this.formData.state,
+            control: this.formData.control,
+            time:
+              this.formData.control === "pulsed"
+                ? this.formData.time
+                : undefined,
+          };
+
+          const url =
+            "{{ url_for('write_gpo', device_name='DEVICE_PLACEHOLDER') }}".replace(
+              "DEVICE_PLACEHOLDER",
+              encodeURIComponent(this.formData.device_name),
+            );
+
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          showAlert(
+            data.message ||
+              (res.ok
+                ? "Command sent successfully!"
+                : "Failed to send command"),
+            res.ok ? "success" : "error",
+          );
+        } catch (e) {
+          showAlert("Error communicating with server", "error");
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      resetForm() {
+        this.formData = {
+          device_name: "",
+          pin: 1,
+          state: true,
+          control: "static",
+          time: 1000,
+        };
+      },
+    };
+  }
+</script>
+{% endblock %}

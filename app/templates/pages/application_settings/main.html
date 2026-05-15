@@ -1,0 +1,9 @@
+{% extends "base.html" %} {% block content %}
+<div class="container px-4 py-8 mb-20">
+  <div class="mb-6">
+    {% include "pages/application_settings/_import_export.html" %}
+  </div>
+  {% include "pages/application_settings/_application_settings.html" %}
+</div>
+
+{% endblock %}

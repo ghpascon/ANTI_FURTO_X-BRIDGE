@@ -1,0 +1,332 @@
+{% extends "base.html" %} {% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="max-w-3xl mx-auto">
+    <div class="bg-white rounded-lg shadow border p-6" x-data="protectedForm()">
+      <h2 class="text-xl font-bold mb-4 text-gray-900">
+        Protected Tag Operations
+      </h2>
+
+      <!-- Protected Inventory Section -->
+      <form @submit.prevent="submitProtectedInventory" class="space-y-4 mb-8">
+        <h3 class="text-lg font-semibold mb-2 text-blue-700">
+          Protected Inventory
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Device <span class="text-red-500">*</span></label
+            >
+            <select
+              x-model="inventoryForm.device_name"
+              @focus="loadDevices"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">Select device</option>
+              <template x-for="device in devices" :key="device">
+                <option :value="device" x-text="device"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Action <span class="text-red-500">*</span></label
+            >
+            <select
+              x-model="inventoryForm.action"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">Select action</option>
+              <option value="enable">Enable</option>
+              <option value="disable">Disable</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Password <span class="text-red-500">*</span></label
+          >
+          <input
+            type="text"
+            x-model="inventoryForm.password"
+            required
+            maxlength="8"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+            placeholder="8 hex chars"
+          />
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg text-sm"
+          >
+            <span x-text="loading ? 'Processing...' : 'Send Command'"></span>
+          </button>
+          <button
+            type="button"
+            @click="resetInventoryForm"
+            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg text-sm"
+          >
+            Reset
+          </button>
+        </div>
+      </form>
+
+      <!-- Protected Mode Section -->
+      <form @submit.prevent="submitProtectedMode" class="space-y-4">
+        <h3 class="text-lg font-semibold mb-2 text-blue-700">Protected Mode</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Device <span class="text-red-500">*</span></label
+            >
+            <select
+              x-model="modeForm.device_name"
+              @focus="loadDevices"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">Select device</option>
+              <template x-for="device in devices" :key="device">
+                <option :value="device" x-text="device"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >EPC <span class="text-red-500">*</span></label
+            >
+            <select
+              x-model="modeForm.epc"
+              @focus="loadTagsForEpc"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+            >
+              <option value="">Select EPC</option>
+              <template x-for="tag in availableTags" :key="tag">
+                <option :value="tag" x-text="tag"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Action <span class="text-red-500">*</span></label
+            >
+            <select
+              x-model="modeForm.action"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">Select action</option>
+              <option value="enable">Enable</option>
+              <option value="disable">Disable</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Password <span class="text-red-500">*</span></label
+          >
+          <input
+            type="text"
+            x-model="modeForm.password"
+            required
+            maxlength="8"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+            placeholder="8 hex chars"
+          />
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg text-sm"
+          >
+            <span x-text="loading ? 'Processing...' : 'Send Command'"></span>
+          </button>
+          <button
+            type="button"
+            @click="resetModeForm"
+            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg text-sm"
+          >
+            Reset
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="mt-4">{% include 'includes/_tags_all.html' %}</div>
+</div>
+
+<script>
+  function protectedForm() {
+    return {
+      loading: false,
+      devices: [],
+      availableTags: [],
+      devicesLoaded: false,
+      tagsLoaded: false,
+      inventoryForm: {
+        device_name: "",
+        action: "",
+        password: "12345678",
+      },
+      modeForm: {
+        device_name: "",
+        epc: "",
+        action: "",
+        password: "12345678",
+      },
+
+      async loadDevices() {
+        if (this.devicesLoaded) return;
+        try {
+          const res = await fetch("{{ url_for('get_devices') }}");
+          if (res.ok) {
+            const data = await res.json();
+            this.devices = Array.isArray(data) ? data : data.devices || [];
+            this.devicesLoaded = true;
+          }
+        } catch (e) {
+          console.error("Error loading devices:", e);
+        }
+      },
+
+      async loadTagsForEpc() {
+        this.tagsLoaded = false;
+        try {
+          const url = "{{ url_for('get_epcs') }}";
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            this.availableTags = Array.isArray(data) ? data : [];
+            this.tagsLoaded = true;
+          }
+        } catch (e) {
+          console.error("Error loading EPCs:", e);
+        }
+      },
+
+      async submitProtectedInventory() {
+        this.loading = true;
+        try {
+          if (!/^[0-9a-fA-F]{8}$/.test(this.inventoryForm.password)) {
+            showAlert("Password must be 8 hex characters", "error");
+            return;
+          }
+          // Converter ação para booleano de forma robusta
+          let actionBool = null;
+          if (
+            String(this.inventoryForm.action).toLowerCase() === "enable" ||
+            String(this.inventoryForm.action).toLowerCase() === "enable"
+          )
+            actionBool = true;
+          else if (
+            String(this.inventoryForm.action).toLowerCase() === "enable" ||
+            String(this.inventoryForm.action).toLowerCase() === "disable"
+          )
+            actionBool = false;
+          else {
+            showAlert("Select a valid action", "error");
+            return;
+          }
+          const payload = {
+            active: actionBool,
+            password: this.inventoryForm.password,
+          };
+          const url =
+            `{{ url_for('protected_inventory', device_name='DEVICE_PLACEHOLDER') }}`.replace(
+              "DEVICE_PLACEHOLDER",
+              encodeURIComponent(this.inventoryForm.device_name),
+            );
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          showAlert(
+            data.message ||
+              (res.ok ? "Command sent!" : "Failed to send command"),
+            res.ok ? "success" : "error",
+          );
+        } catch (e) {
+          console.error("Error:", e);
+          showAlert("Error communicating with server", "error");
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async submitProtectedMode() {
+        this.loading = true;
+        try {
+          if (!/^[0-9a-fA-F]{8}$/.test(this.modeForm.password)) {
+            showAlert("Password must be 8 hex characters", "error");
+            return;
+          }
+          if (!/^[0-9a-fA-F]{24}$/.test(this.modeForm.epc)) {
+            showAlert("EPC must be 24 hex characters", "error");
+            return;
+          }
+          // Converter ação para booleano de forma robusta
+          let actionBool = null;
+          if (String(this.modeForm.action).toLowerCase() === "enable")
+            actionBool = true;
+          else if (String(this.modeForm.action).toLowerCase() === "disable")
+            actionBool = false;
+          else {
+            showAlert("Select a valid action", "error");
+            return;
+          }
+          const payload = {
+            epc: this.modeForm.epc,
+            active: actionBool,
+            password: this.modeForm.password,
+          };
+          const url =
+            `{{ url_for('protected_mode', device_name='DEVICE_PLACEHOLDER') }}`.replace(
+              "DEVICE_PLACEHOLDER",
+              encodeURIComponent(this.modeForm.device_name),
+            );
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          showAlert(
+            data.message ||
+              (res.ok ? "Command sent!" : "Failed to send command"),
+            res.ok ? "success" : "error",
+          );
+        } catch (e) {
+          console.error("Error:", e);
+          showAlert("Error communicating with server", "error");
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      resetInventoryForm() {
+        this.inventoryForm = {
+          device_name: "",
+          action: "",
+          password: "12345678",
+        };
+      },
+      resetModeForm() {
+        this.modeForm = {
+          device_name: "",
+          epc: "",
+          action: "",
+          password: "12345678",
+        };
+      },
+    };
+  }
+</script>
+{% endblock %}

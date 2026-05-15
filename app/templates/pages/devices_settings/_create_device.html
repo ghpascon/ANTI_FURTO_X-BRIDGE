@@ -1,0 +1,20 @@
+<div>
+  <button
+    class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white font-medium shadow hover:bg-green-700 transition text-sm mb-6"
+    type="button"
+    onclick="window.dispatchEvent(new CustomEvent('open-create-device'))"
+  >
+    <svg
+      class="w-4 h-4 mr-2"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      viewBox="0 0 24 24"
+    >
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+    Create Device
+  </button>
+
+  {% include 'pages/devices_settings/_device_modal.html' %}
+</div>

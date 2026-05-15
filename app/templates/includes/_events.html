@@ -1,0 +1,56 @@
+<!-- Events Widget -->
+<div class="bg-white rounded-lg shadow-lg border p-4 w-full" x-data="eventsSummary()">
+  <!-- Header -->
+  <div class="text-sm">
+    <!-- Tag Count Display -->
+    <div class="flex justify-between items-center pb-4">
+      <span class="text-2xl text-black font-bold">Total Tags:</span>
+      <span class="text-3xl font-bold text-blue-600" x-text="tagCount"></span>
+    </div>
+
+    <!-- Clear Button Form -->
+    <form action="{{ url_for('clear_tags') }}" method="post" class="w-full" target="hidden_iframe">
+      <button type="submit" :disabled="loading"
+        class="w-full bg-gray-500 hover:bg-red-600 text-white font-medium py-3 px-4 rounded">
+        <span>🗑️ Clear All Tags</span>
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+  function eventsSummary() {
+    return {
+      tagCount: 0,
+      loading: false,
+      pollHandle: null,
+      visibilityHandler: null,
+
+      async init() {
+        await this.loadTagCount();
+        TemplateUtils.bindVisibilityPolling(this, this.loadTagCount, 1000);
+      },
+
+      destroy() {
+        TemplateUtils.unbindVisibilityPolling(this);
+      },
+
+      async loadTagCount() {
+        if (this.loading) {
+          return;
+        }
+
+        this.loading = true;
+
+        try {
+          const data = await TemplateUtils.fetchJson("{{ url_for('get_tag_count') }}");
+          this.tagCount = data.count || 0;
+        } catch (error) {
+          console.error("Error loading tag count:", error);
+        } finally {
+          this.loading = false;
+        }
+      },
+    };
+  }
+</script>

@@ -1,0 +1,279 @@
+{% extends "base.html" %} {% block content %}
+<div class="container px-4 py-8 mb-20">
+  <div x-data="licenseManager()" x-init="init()">
+    <!-- License Info Card -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-900">License Status</h2>
+        <button
+          @click="fetchLicense()"
+          :disabled="loading"
+          class="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40 transition-colors"
+          title="Refresh"
+        >
+          ↻ Refresh
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div x-show="loading" class="flex justify-center py-6">
+        <div
+          class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"
+        ></div>
+      </div>
+
+      <!-- No license -->
+      <div
+        x-show="!loading && !licenseData && !generateKey"
+        x-cloak
+        class="text-center text-gray-400 text-sm py-4"
+      >
+        No license loaded.
+      </div>
+
+      <!-- License Details -->
+      <div
+        x-show="!loading && (licenseData || generateKey)"
+        x-cloak
+        class="space-y-3"
+      >
+        <!-- Status badge -->
+        <span
+          :class="valid ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-red-100 text-red-700 border-red-200'"
+          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border"
+        >
+          <span
+            :class="valid ? 'bg-emerald-500' : 'bg-red-500'"
+            class="w-2 h-2 rounded-full"
+          ></span>
+          <span x-text="valid ? 'Valid' : 'Invalid / Expired'"></span>
+        </span>
+
+        <!-- License fields table -->
+        <div
+          x-show="licenseData && Object.keys(licenseData).length > 0"
+          class="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden mt-3"
+        >
+          <template
+            x-for="[key, value] in Object.entries(licenseData || {})"
+            :key="key"
+          >
+            <div
+              class="flex justify-between items-center px-4 py-2.5 bg-gray-50 even:bg-white"
+            >
+              <span
+                class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                x-text="formatKey(key)"
+              ></span>
+              <span
+                class="text-sm font-semibold text-gray-800 break-all text-right ml-4"
+                x-text="value ?? '—'"
+              ></span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Generate Key (invalid license) -->
+        <div
+          x-show="!valid && generateKey"
+          class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-4"
+        >
+          <p
+            class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2"
+          >
+            Hardware Key — send this to activate your license
+          </p>
+          <div class="flex items-center gap-2">
+            <code
+              class="flex-1 text-xs font-mono text-amber-900 bg-amber-100 rounded px-3 py-2 break-all select-all"
+              x-text="generateKey"
+            ></code>
+            <button
+              type="button"
+              @click="copyKey()"
+              class="shrink-0 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors"
+              title="Copy to clipboard"
+            >
+              <span x-show="!copied">Copy</span>
+              <span x-show="copied">✓ Copied</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload License Card -->
+    <div class="bg-white rounded-2xl shadow-lg p-6">
+      <h2 class="text-lg font-bold text-gray-900 mb-1">Update License</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Paste the license string or select a <code>.txt</code> file
+      </p>
+
+      <form @submit.prevent="uploadLicense()">
+        <!-- File picker -->
+        <label
+          class="flex items-center gap-2 border border-dashed border-gray-300 rounded-lg px-4 py-3 mb-3 cursor-pointer hover:bg-gray-50 transition-colors"
+        >
+          <svg
+            class="w-4 h-4 text-gray-400 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0L8 8m4-4l4 4"
+            />
+          </svg>
+          <span
+            class="text-sm text-gray-500"
+            x-text="fileName || 'Select license.txt...'"
+          ></span>
+          <input
+            type="file"
+            accept=".txt,text/plain"
+            class="hidden"
+            @change="onFileChange($event)"
+          />
+        </label>
+
+        <!-- Textarea -->
+        <textarea
+          x-model="newLicenseStr"
+          rows="4"
+          placeholder="…or paste your license string here"
+          class="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono resize-none mb-4"
+        ></textarea>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="submit"
+            :disabled="uploading || !newLicenseStr.trim()"
+            class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span x-show="!uploading">Apply License</span>
+            <span x-show="uploading">Uploading...</span>
+          </button>
+          <button
+            type="button"
+            @click="newLicenseStr = ''; fileName = ''"
+            class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const getLicenseUrl = '{{ url_for("get_license_info") }}';
+    const uploadLicenseUrl = '{{ url_for("upload_license") }}';
+
+    window.licenseManager = function () {
+      return {
+        loading: false,
+        uploading: false,
+        valid: false,
+        licenseData: null,
+        generateKey: null,
+        copied: false,
+        newLicenseStr: "",
+        fileName: "",
+
+        async init() {
+          await this.fetchLicense();
+        },
+
+        async copyKey() {
+          if (!this.generateKey) return;
+          await navigator.clipboard.writeText(this.generateKey);
+          this.copied = true;
+          setTimeout(() => {
+            this.copied = false;
+          }, 2000);
+        },
+
+        onFileChange(event) {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          this.fileName = file.name;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            this.newLicenseStr = (e.target.result || "").trim();
+          };
+          reader.readAsText(file);
+        },
+
+        async fetchLicense() {
+          this.loading = true;
+          try {
+            const res = await fetch(getLicenseUrl);
+            const data = await res.json();
+            this.valid = data.valid ?? false;
+            this.licenseData = data.license_info ?? null;
+            this.generateKey = data.generate_key ?? null;
+          } catch (e) {
+            if (window.showAlert)
+              window.showAlert(
+                "Failed to load license info: " + e.message,
+                "error",
+                5000,
+              );
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async uploadLicense() {
+          if (!this.newLicenseStr.trim()) return;
+          this.uploading = true;
+          try {
+            const res = await fetch(uploadLicenseUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                license_string: this.newLicenseStr.trim(),
+              }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+              if (window.showAlert)
+                window.showAlert(
+                  data.message || "License uploaded successfully",
+                  "success",
+                  4000,
+                );
+              this.newLicenseStr = "";
+              this.fileName = "";
+              await this.fetchLicense();
+            } else {
+              if (window.showAlert)
+                window.showAlert(
+                  data.message || "Upload failed",
+                  "error",
+                  5000,
+                );
+            }
+          } catch (e) {
+            if (window.showAlert)
+              window.showAlert("Upload error: " + e.message, "error", 5000);
+          } finally {
+            this.uploading = false;
+          }
+        },
+
+        formatKey(key) {
+          return key
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+        },
+      };
+    };
+  })();
+</script>
+{% endblock %}

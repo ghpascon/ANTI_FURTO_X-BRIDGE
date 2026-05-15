@@ -1,0 +1,79 @@
+<div class="flex items-center gap-3">
+  <button
+    id="btn-backup-config"
+    class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+    type="button"
+  >
+    Export Backup
+  </button>
+
+  <label class="flex items-center gap-2 bg-white border rounded px-3 py-2 text-sm cursor-pointer hover:bg-gray-50">
+    <input id="import-file-input" type="file" accept="application/json" class="hidden" />
+    <span class="text-gray-700">Import Backup</span>
+  </label>
+</div>
+
+<script>
+  (function () {
+    const backupUrl = '{{ url_for("backup_config") }}';
+    const importUrl = '{{ url_for("import_config") }}';
+
+    document.getElementById('btn-backup-config').addEventListener('click', async () => {
+      try {
+        const res = await fetch(backupUrl);
+        if (!res.ok) throw new Error('Backup request failed');
+        const data = await res.json();
+        const now = new Date();
+        const fname = `bkp_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}.json`;
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        if (window.showAlert) window.showAlert('Export failed: ' + e.message, 'error', 5000);
+      }
+    });
+
+    const input = document.getElementById('import-file-input');
+    input.addEventListener('change', async (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch (err) {
+          if (window.showAlert) window.showAlert('Invalid JSON file', 'error', 5000);
+          return;
+        }
+
+        const res = await fetch(importUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(json),
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => 'Import failed');
+          if (window.showAlert) window.showAlert(txt, 'error', 5000);
+          return;
+        }
+
+        const result = await res.json().catch(() => ({}));
+        if (window.showAlert) window.showAlert('Import completed', 'success', 3000);
+        // Optionally trigger reloads/listeners
+        window.dispatchEvent(new CustomEvent('config-imported', { detail: result }));
+      } catch (e) {
+        if (window.showAlert) window.showAlert('Import failed: ' + e.message, 'error', 5000);
+      } finally {
+        input.value = '';
+      }
+    });
+  })();
+</script>

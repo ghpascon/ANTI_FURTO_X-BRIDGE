@@ -1,0 +1,435 @@
+{% extends "base.html" %} {% block content %}
+<div class="container mx-auto px-4 py-8" x-data="logsPage()">
+  <!-- Header -->
+  <div class="mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="text-3xl font-bold text-gray-900">
+          <i class="fas fa-file-text mr-3 text-blue-600"></i>
+          System Logs
+        </h1>
+        <button @click="clearFilters()"
+          class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-sm border border-gray-300 shadow-sm"
+          title="Clear all filters">
+          <i class="fas fa-eraser mr-2"></i>Clear Filters
+        </button>
+      </div>
+
+      <!-- Controls -->
+      <div class="flex flex-wrap items-center gap-3">
+        <!-- Limit selector -->
+        <label class="flex items-center gap-2 text-sm text-gray-600">
+          <span>Limit</span>
+          <select x-model="selectedLimit" @change="onLimitChange()"
+            class="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900">
+            <option value="100">100</option>
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+            <option value="0">All</option>
+          </select>
+        </label>
+
+        <button @click="refreshLogs()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md">
+          <i class="fas fa-sync-alt mr-2"></i>
+          Refresh
+        </button>
+        <div class="flex items-center">
+          <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"
+            :class="{'animate-pulse': autoRefresh}"></span>
+          <span class="text-sm text-gray-600">Auto: 20s</span>
+        </div>
+        <button @click="toggleAutoRefresh()"
+          :class="autoRefresh ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'"
+          class="px-3 py-1 text-white text-sm rounded-md">
+          <span x-text="autoRefresh ? 'Stop' : 'Start'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Filters -->
+  <div class="mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+      <!-- Search -->
+      <div class="md:col-span-2">
+        <div class="relative">
+          <input type="text" x-model="searchTerm" placeholder="Search logs..."
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+          <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+        </div>
+      </div>
+      <!-- Level Filter -->
+      <div>
+        <select x-model="selectedLevel"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500">
+          <option value="">All Levels</option>
+          <option value="ERROR">Error</option>
+          <option value="WARNING">Warning</option>
+          <option value="INFO">Info</option>
+          <option value="DEBUG">Debug</option>
+        </select>
+      </div>
+      <!-- Module Filter with multi-select autocomplete -->
+      <div class="relative">
+        <input type="text" x-model="moduleInput" @input="showModuleOptions = true" @focus="showModuleOptions = true"
+          @blur="setTimeout(() => showModuleOptions = false, 150)" @keydown.enter.prevent="addModuleFilter()"
+          placeholder="Module"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500"
+          autocomplete="off" />
+        <div x-show="selectedModules.length > 0" class="flex flex-wrap gap-1 mt-1">
+          <template x-for="(mod, idx) in selectedModules" :key="mod">
+            <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs flex items-center">
+              <span x-text="mod"></span>
+              <button class="ml-1 text-blue-600 hover:text-red-600" @click.prevent="removeModuleFilter(idx)">
+                <i class="fas fa-times"></i>
+              </button>
+            </span>
+          </template>
+        </div>
+        <div x-show="showModuleOptions && filteredModuleOptions.length > 0"
+          class="absolute z-10 w-full bg-white border border-gray-300 rounded shadow max-h-40 overflow-y-auto">
+          <template x-for="option in filteredModuleOptions" :key="option">
+            <div class="px-3 py-1 hover:bg-blue-100 cursor-pointer text-gray-800 text-sm"
+              @mousedown.prevent="moduleInput = option; addModuleFilter()" x-text="option"></div>
+          </template>
+        </div>
+      </div>
+      <!-- Function Filter with multi-select autocomplete -->
+      <div class="relative">
+        <input type="text" x-model="functionInput" @input="showFunctionOptions = true"
+          @focus="showFunctionOptions = true" @blur="setTimeout(() => showFunctionOptions = false, 150)"
+          @keydown.enter.prevent="addFunctionFilter()" placeholder="Function"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500"
+          autocomplete="off" />
+        <div x-show="selectedFunctions.length > 0" class="flex flex-wrap gap-1 mt-1">
+          <template x-for="(fn, idx) in selectedFunctions" :key="fn">
+            <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs flex items-center">
+              <span x-text="fn"></span>
+              <button class="ml-1 text-blue-600 hover:text-red-600" @click.prevent="removeFunctionFilter(idx)">
+                <i class="fas fa-times"></i>
+              </button>
+            </span>
+          </template>
+        </div>
+        <div x-show="showFunctionOptions && filteredFunctionOptions.length > 0"
+          class="absolute z-10 w-full bg-white border border-gray-300 rounded shadow max-h-40 overflow-y-auto">
+          <template x-for="option in filteredFunctionOptions" :key="option">
+            <div class="px-3 py-1 hover:bg-blue-100 cursor-pointer text-gray-800 text-sm"
+              @mousedown.prevent="functionInput = option; addFunctionFilter()" x-text="option"></div>
+          </template>
+        </div>
+      </div>
+      <!-- Pathname Filter with multi-select autocomplete -->
+      <div class="relative">
+        <input type="text" x-model="pathnameInput" @input="showPathnameOptions = true"
+          @focus="showPathnameOptions = true" @blur="setTimeout(() => showPathnameOptions = false, 150)"
+          @keydown.enter.prevent="addPathnameFilter()" placeholder="Pathname"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500"
+          autocomplete="off" />
+        <div x-show="selectedPathnames.length > 0" class="flex flex-wrap gap-1 mt-1">
+          <template x-for="(pn, idx) in selectedPathnames" :key="pn">
+            <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs flex items-center">
+              <span x-text="pn"></span>
+              <button class="ml-1 text-blue-600 hover:text-red-600" @click.prevent="removePathnameFilter(idx)">
+                <i class="fas fa-times"></i>
+              </button>
+            </span>
+          </template>
+        </div>
+        <div x-show="showPathnameOptions && filteredPathnameOptions.length > 0"
+          class="absolute z-10 w-full bg-white border border-gray-300 rounded shadow max-h-40 overflow-y-auto">
+          <template x-for="option in filteredPathnameOptions" :key="option">
+            <div class="px-3 py-1 hover:bg-blue-100 cursor-pointer text-gray-800 text-sm"
+              @mousedown.prevent="pathnameInput = option; addPathnameFilter()" x-text="option"></div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logs Content -->
+  <div class="bg-white rounded-lg shadow border overflow-hidden">
+    <!-- Header -->
+    <div class="bg-gray-50 border-b px-4 py-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900">Recent Logs</h2>
+        <div class="text-sm text-gray-600">
+          <span x-text="filteredLogs.length"></span> lines
+          <template x-if="logInfo && logInfo.total_lines > logInfo.returned_lines">
+            <span class="text-gray-400 ml-1">
+              (of <span x-text="logInfo.total_lines"></span> total)
+            </span>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="h-96 overflow-y-auto bg-black text-green-400 font-mono text-sm">
+      <!-- Loading -->
+      <div x-show="logs.length === 0" class="flex items-center justify-center h-full">
+        <div class="text-center text-gray-500">
+          <i class="fas fa-spinner fa-spin text-2xl mb-4"></i>
+          <p>Loading logs...</p>
+        </div>
+      </div>
+
+      <!-- Logs List -->
+      <div x-show="logs.length > 0" class="p-4">
+        <template x-for="(log, index) in filteredLogs" :key="index">
+          <div class="mb-1 hover:bg-gray-800 px-2 py-2 rounded transition-all" :class="getLineClass(log)">
+            <div class="flex flex-wrap items-center mb-1 gap-x-2 gap-y-1">
+              <span class="text-gray-500 mr-3 text-xs" x-text="String(index + 1).padStart(4, '0')"></span>
+              <span class="font-bold" x-text="log.level"></span>
+              <span class="ml-2 text-xs text-gray-400" x-text="log.timestamp || log.asctime || ''"></span>
+              <span class="ml-2 text-gray-300" x-text="log.module ? log.module + '.' : ''"></span>
+              <span class="ml-1 text-gray-300" x-text="log.function || ''"></span>
+              <span class="ml-2 text-xs text-gray-500" x-show="log.execution_time"
+                x-text="'⏱ ' + log.execution_time"></span>
+              <template x-if="log.pathname">
+                <span
+                  class="ml-2 truncate max-w-xs text-xs text-blue-300 bg-blue-900/30 px-2 py-0.5 rounded cursor-pointer"
+                  :title="log.pathname" x-text="log.pathname"></span>
+              </template>
+            </div>
+            <div class="text-white" x-text="log.message"></div>
+            <template x-if="log.exception">
+              <pre class="text-red-300 bg-red-900/30 rounded p-2 mt-1 whitespace-pre-wrap" x-text="log.exception"></pre>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <!-- No Results -->
+      <div x-show="filteredLogs.length === 0 && logs.length > 0" class="flex items-center justify-center h-full">
+        <div class="text-center text-gray-500">
+          <i class="fas fa-search text-2xl mb-4"></i>
+          <p>No logs match your search</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="mt-4 text-center">
+    <p class="text-sm text-gray-500">
+      Last update: <span x-text="lastUpdate"></span>
+    </p>
+  </div>
+</div>
+
+<script>
+  function logsPage() {
+    return {
+      autoRefresh: true,
+      searchTerm: "",
+      selectedLevel: "",
+      lastUpdate: "Never",
+      refreshInterval: null,
+      logs: [],
+      logInfo: null,
+      lastHash: null,
+      selectedLimit: "500",
+
+      // Multi-select: module
+      showModuleOptions: false,
+      moduleInput: "",
+      selectedModules: [],
+
+      // Multi-select: function
+      showFunctionOptions: false,
+      functionInput: "",
+      selectedFunctions: [],
+
+      // Multi-select: pathname
+      showPathnameOptions: false,
+      pathnameInput: "",
+      selectedPathnames: [],
+
+      clearFilters() {
+        this.searchTerm = "";
+        this.selectedLevel = "";
+        this.moduleInput = "";
+        this.selectedModules = [];
+        this.functionInput = "";
+        this.selectedFunctions = [];
+        this.pathnameInput = "";
+        this.selectedPathnames = [];
+      },
+
+      addModuleFilter() {
+        const val = this.moduleInput.trim();
+        if (val && !this.selectedModules.includes(val)) {
+          this.selectedModules.push(val);
+        }
+        this.moduleInput = "";
+        this.showModuleOptions = false;
+      },
+      removeModuleFilter(idx) { this.selectedModules.splice(idx, 1); },
+
+      addFunctionFilter() {
+        const val = this.functionInput.trim();
+        if (val && !this.selectedFunctions.includes(val)) {
+          this.selectedFunctions.push(val);
+        }
+        this.functionInput = "";
+        this.showFunctionOptions = false;
+      },
+      removeFunctionFilter(idx) { this.selectedFunctions.splice(idx, 1); },
+
+      addPathnameFilter() {
+        const val = this.pathnameInput.trim();
+        if (val && !this.selectedPathnames.includes(val)) {
+          this.selectedPathnames.push(val);
+        }
+        this.pathnameInput = "";
+        this.showPathnameOptions = false;
+      },
+      removePathnameFilter(idx) { this.selectedPathnames.splice(idx, 1); },
+
+      get moduleOptions() {
+        return [...new Set(this.logs.map((l) => l.module).filter(Boolean))].sort();
+      },
+      get filteredModuleOptions() {
+        const search = this.moduleInput.toLowerCase();
+        return search
+          ? this.moduleOptions.filter((o) => o.toLowerCase().includes(search))
+          : this.moduleOptions;
+      },
+
+      get functionOptions() {
+        return [...new Set(this.logs.map((l) => l.function).filter(Boolean))].sort();
+      },
+      get filteredFunctionOptions() {
+        const search = this.functionInput.toLowerCase();
+        return search
+          ? this.functionOptions.filter((o) => o.toLowerCase().includes(search))
+          : this.functionOptions;
+      },
+
+      get pathnameOptions() {
+        return [...new Set(this.logs.map((l) => l.pathname).filter(Boolean))].sort();
+      },
+      get filteredPathnameOptions() {
+        const search = this.pathnameInput.toLowerCase();
+        return search
+          ? this.pathnameOptions.filter((o) => o.toLowerCase().includes(search))
+          : this.pathnameOptions;
+      },
+
+      init() {
+        this.loadLogs();
+        this.startAutoRefresh();
+      },
+
+      buildUrl() {
+        const limit = parseInt(this.selectedLimit, 10) || 0;
+        let url = `/logs/get_content?limit=${limit}`;
+        if (this.lastHash) url += `&last_hash=${encodeURIComponent(this.lastHash)}`;
+        return url;
+      },
+
+      async onLimitChange() {
+        this.lastHash = null;
+        await this.loadLogs();
+      },
+
+      async loadLogs() {
+        try {
+          const response = await fetch(this.buildUrl());
+          if (!response.ok) {
+            this.logs = [{ level: "ERROR", message: `Failed to load logs (${response.status})` }];
+            return;
+          }
+          const data = await response.json();
+
+          // Server signals nothing changed — skip re-render
+          if (data.changed === false) return;
+
+          this.lastHash = data.hash || null;
+          this.logInfo = data.info || null;
+
+          this.logs = (data.content || [])
+            .slice()
+            .reverse()
+            .map((line) => {
+              try { return JSON.parse(line); }
+              catch { return { level: "RAW", message: line }; }
+            });
+
+          this.updateTimestamp();
+        } catch (error) {
+          this.logs = [{ level: "ERROR", message: error.message }];
+        }
+      },
+
+      get filteredLogs() {
+        let filtered = this.logs;
+
+        if (this.searchTerm) {
+          const search = this.searchTerm.toLowerCase();
+          filtered = filtered.filter((log) =>
+            Object.values(log).some(
+              (val) => typeof val === "string" && val.toLowerCase().includes(search)
+            )
+          );
+        }
+
+        if (this.selectedLevel) {
+          filtered = filtered.filter((log) => log.level === this.selectedLevel);
+        }
+
+        if (this.selectedModules.length > 0) {
+          filtered = filtered.filter(
+            (log) => log.module && this.selectedModules.includes(log.module)
+          );
+        }
+
+        if (this.selectedFunctions.length > 0) {
+          filtered = filtered.filter(
+            (log) => log.function && this.selectedFunctions.includes(log.function)
+          );
+        }
+
+        if (this.selectedPathnames.length > 0) {
+          filtered = filtered.filter(
+            (log) => log.pathname && this.selectedPathnames.includes(log.pathname)
+          );
+        }
+
+        return filtered;
+      },
+
+      getLineClass(line) {
+        switch (line.level) {
+          case "ERROR": return "text-red-400 bg-red-900/20";
+          case "WARNING": return "text-yellow-400 bg-yellow-900/20";
+          case "INFO": return "text-blue-400 bg-blue-900/20";
+          case "DEBUG": return "text-gray-400 bg-gray-900/20";
+          default: return "text-green-400";
+        }
+      },
+
+      startAutoRefresh() {
+        if (this.refreshInterval) clearInterval(this.refreshInterval);
+        this.refreshInterval = setInterval(() => {
+          if (this.autoRefresh) this.loadLogs();
+        }, 20000);
+      },
+
+      toggleAutoRefresh() { this.autoRefresh = !this.autoRefresh; },
+
+      async refreshLogs() { await this.loadLogs(); },
+
+      updateTimestamp() {
+        this.lastUpdate = new Date().toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      },
+    };
+  }
+</script>
+{% endblock %}

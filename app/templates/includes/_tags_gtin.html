@@ -1,0 +1,114 @@
+<!-- Tags Table Widget -->
+<div class="bg-white rounded-lg shadow border p-4 flex flex-col w-full h-[75vh]" x-data="gtinTable()">
+  <div class="justify-between flex items-center mb-4 flex-shrink-0">
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('index') }}"
+        class="bg-white border border-blue-300 hover:bg-blue-50 text-blue-700 px-4 py-2 rounded text-sm font-medium">
+        EPCs
+      </a>
+      <span class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium">
+        GTIN
+      </span>
+      <a href="{{ url_for('tag_details') }}"
+        class="bg-white border border-blue-300 hover:bg-blue-50 text-blue-700 px-4 py-2 rounded text-sm font-medium">
+        All
+      </a>
+    </div>
+
+    <div>
+      <h4 class="text-lg font-semibold">
+        GTINs: <span x-text="gtins.length"></span> | Total Tags:
+        <span x-text="totalTags"></span>
+      </h4>
+    </div>
+  </div>
+
+  <div class="border rounded overflow-hidden flex-1">
+    <div class="overflow-x-auto overflow-y-auto h-full">
+      <table x-show="gtins.length > 0" class="min-w-full border-collapse">
+        <thead class="bg-gray-50 sticky top-0">
+          <tr>
+            <th
+              class="px-4 py-3 text-left whitespace-nowrap border-b-2 border-gray-200 font-mono text-sm font-semibold text-gray-900">
+              GTIN
+            </th>
+            <th
+              class="px-4 py-3 text-left whitespace-nowrap border-b-2 border-gray-200 font-mono text-sm font-semibold text-gray-900">
+              COUNT
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(item, index) in gtins" :key="`gtin-${index}`">
+            <tr class="border-b border-gray-200 hover:bg-gray-50">
+              <td class="px-4 py-3 font-mono text-sm whitespace-nowrap text-gray-900" x-text="item.gtin"></td>
+              <td class="px-4 py-3 font-mono text-sm whitespace-nowrap text-gray-900" x-text="item.count"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
+      <div x-show="gtins.length === 0" class="p-8 text-center text-gray-400">
+        No GTINs found
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function gtinTable() {
+    return {
+      gtins: [],
+      totalTags: 0,
+      loadingGtins: false,
+      pollHandle: null,
+      visibilityHandler: null,
+      lastGtinsPayload: "",
+
+      async init() {
+        await this.loadGtins();
+        TemplateUtils.bindVisibilityPolling(this, this.loadGtins, 2000);
+      },
+
+      destroy() {
+        TemplateUtils.unbindVisibilityPolling(this);
+      },
+
+      async loadGtins() {
+        if (this.loadingGtins) {
+          return;
+        }
+
+        this.loadingGtins = true;
+
+        try {
+          const result = await TemplateUtils.fetchJsonIfChanged(
+            "{{ url_for('get_gtin_count') }}",
+            this.lastGtinsPayload,
+          );
+
+          if (result.changed) {
+            this.lastGtinsPayload = result.payload;
+            const data = result.data;
+
+            // Convert object to array: {"gtin1": 5, "gtin2": 3} -> [{gtin: "gtin1", count: 5}, ...]
+            this.gtins = Object.entries(data).map(([gtin, count]) => ({
+              gtin: gtin,
+              count: count,
+            }));
+
+            // Calculate total tags
+            this.totalTags = this.gtins.reduce(
+              (sum, item) => sum + item.count,
+              0,
+            );
+          }
+        } catch (error) {
+          console.error("Error loading GTINs:", error);
+        } finally {
+          this.loadingGtins = false;
+        }
+      },
+    };
+  }
+</script>

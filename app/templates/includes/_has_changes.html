@@ -1,0 +1,59 @@
+<script>
+  document.addEventListener("alpine:init", () => {
+    Alpine.data("hasChangesMonitor", () => ({
+      hasChanges: false,
+      alertShown: false,
+      checkInterval: null,
+
+      init() {
+        this.startMonitoring();
+      },
+
+      startMonitoring() {
+        this.checkChanges();
+        this.checkInterval = setInterval(() => {
+          this.checkChanges();
+        }, 5000);
+      },
+
+      async checkChanges() {
+        try {
+          const response = await fetch('{{ url_for("has_changes") }}');
+          const data = await response.json();
+
+          if (data.has_changes && !this.alertShown) {
+            this.showPersistentAlert();
+            this.alertShown = true;
+          } else if (!data.has_changes && this.alertShown) {
+            this.alertShown = false;
+          }
+        } catch (error) {
+          console.error("Error checking changes:", error);
+        }
+      },
+
+      showPersistentAlert() {
+        if (window.showPersistentAlert) {
+          window.showPersistentAlert(
+            "Unsaved changes detected. Click here to restart the application.",
+            "warning",
+            () => this.restartApplication(),
+          );
+        }
+      },
+
+      async restartApplication() {
+        try {
+          await fetch('{{ url_for("restart_application_route") }}', {
+            method: "POST",
+          });
+          showAlert("Application is restarting...", "info", 3000);
+        } catch (error) {
+          showAlert("Error restarting application", "error", 5000);
+        }
+      },
+    }));
+  });
+</script>
+
+<div x-data="hasChangesMonitor"></div>

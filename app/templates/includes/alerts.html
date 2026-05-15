@@ -1,0 +1,429 @@
+<!-- Alerts System -->
+<div
+  class="fixed top-20 right-4 z-50 space-y-3"
+  x-data="alertsManager()"
+  x-init="init()"
+>
+  <!-- Server-side alerts -->
+  {% if alerts %} {% for alert in alerts %}
+  <div
+    x-data="{ show: true }"
+    x-show="show"
+    x-transition:enter="transition ease-out duration-500 transform"
+    x-transition:enter-start="opacity-0 translate-x-full scale-95"
+    x-transition:enter-end="opacity-100 translate-x-0 scale-100"
+    x-transition:leave="transition ease-in duration-300 transform"
+    x-transition:leave-start="opacity-100 translate-x-0 scale-100"
+    x-transition:leave-end="opacity-0 translate-x-full scale-95"
+    x-init="setTimeout(() => show = false, 5000)"
+    class="max-w-sm w-full backdrop-blur-sm border rounded-2xl shadow-2xl p-5 {% if alert.level == 'error' %}bg-red-50/95 border-red-200 shadow-red-100 {% elif alert.level == 'warning' %}bg-amber-50/95 border-amber-200 shadow-amber-100 {% elif alert.level == 'success' %}bg-emerald-50/95 border-emerald-200 shadow-emerald-100 {% else %}bg-blue-50/95 border-blue-200 shadow-blue-100{% endif %}"
+  >
+    <div class="flex items-start">
+      <div class="flex-shrink-0">
+        {% if alert.level == 'error' %}
+        <!-- Error Icon -->
+        <div
+          class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center shadow-lg"
+        >
+          <svg
+            class="h-5 w-5 text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </div>
+        {% elif alert.level == 'warning' %}
+        <!-- Warning Icon -->
+        <div
+          class="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center shadow-lg"
+        >
+          <svg
+            class="h-5 w-5 text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </div>
+        {% elif alert.level == 'success' %}
+        <!-- Success Icon -->
+        <div
+          class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg"
+        >
+          <svg
+            class="h-5 w-5 text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </div>
+        {% else %}
+        <!-- Info Icon (default) -->
+        <div
+          class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center shadow-lg"
+        >
+          <svg
+            class="h-5 w-5 text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </div>
+        {% endif %}
+      </div>
+      <div class="ml-4 flex-1">
+        <div class="flex items-center mb-1">
+          <h4
+            class="text-sm font-bold {% if alert.level == 'error' %}text-red-800 {% elif alert.level == 'warning' %}text-amber-800 {% elif alert.level == 'success' %}text-emerald-800 {% else %}text-blue-800{% endif %}"
+          >
+            {% if alert.level == 'error' %}Error {% elif alert.level ==
+            'warning' %}Warning {% elif alert.level == 'success' %}Success {%
+            else %}Info{% endif %}
+          </h4>
+        </div>
+        <p
+          class="text-sm {% if alert.level == 'error' %}text-red-700 {% elif alert.level == 'warning' %}text-amber-700 {% elif alert.level == 'success' %}text-emerald-700 {% else %}text-blue-700{% endif %}"
+        >
+          {{ alert.text }}
+        </p>
+      </div>
+      <div class="ml-3 flex-shrink-0">
+        <button
+          @click="show = false"
+          class="inline-flex p-1.5 rounded-full transition-all duration-200 hover:scale-110 {% if alert.level == 'error' %}text-red-400 hover:text-red-600 hover:bg-red-100 {% elif alert.level == 'warning' %}text-amber-400 hover:text-amber-600 hover:bg-amber-100 {% elif alert.level == 'success' %}text-emerald-400 hover:text-emerald-600 hover:bg-emerald-100 {% else %}text-blue-400 hover:text-blue-600 hover:bg-blue-100{% endif %}"
+        >
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fill-rule="evenodd"
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Progress bar for auto-dismiss -->
+    <div class="mt-3 w-full bg-white/30 rounded-full h-1 overflow-hidden">
+      <div
+        x-data="{ width: '100%' }"
+        x-init="setTimeout(() => width = '0%', 100)"
+        :style="`width: ${width}; transition: width 5s linear`"
+        class="h-full rounded-full {% if alert.level == 'error' %}bg-red-400 {% elif alert.level == 'warning' %}bg-amber-400 {% elif alert.level == 'success' %}bg-emerald-400 {% else %}bg-blue-400{% endif %}"
+      ></div>
+    </div>
+  </div>
+  {% endfor %} {% endif %}
+
+  <!-- Dynamic alerts container -->
+  <template x-for="(alert, index) in dynamicAlerts" :key="`alert-${index}`">
+    <div
+      x-show="alert.show"
+      x-transition:enter="transition ease-out duration-500 transform"
+      x-transition:enter-start="opacity-0 translate-x-full scale-95"
+      x-transition:enter-end="opacity-100 translate-x-0 scale-100"
+      x-transition:leave="transition ease-in duration-300 transform"
+      x-transition:leave-start="opacity-100 translate-x-0 scale-100"
+      x-transition:leave-end="opacity-0 translate-x-full scale-95"
+      :class="`max-w-sm w-full backdrop-blur-sm border rounded-2xl shadow-2xl p-5 ${getAlertClasses(alert.level)}`"
+    >
+      <div class="flex items-start">
+        <div class="flex-shrink-0" x-html="getAlertIcon(alert.level)"></div>
+        <div class="ml-4 flex-1">
+          <div class="flex items-center mb-1">
+            <h4
+              :class="`text-sm font-bold ${getAlertTextClass(alert.level)}`"
+              x-text="getAlertTitle(alert.level)"
+            ></h4>
+          </div>
+          <p
+            :class="`text-sm ${getAlertTextClass(alert.level, true)}`"
+            x-text="alert.text"
+          ></p>
+        </div>
+        <div class="ml-3 flex-shrink-0">
+          <button
+            @click="dismissAlert(index)"
+            :class="`inline-flex p-1.5 rounded-full transition-all duration-200 hover:scale-110 ${getAlertButtonClass(alert.level)}`"
+          >
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress bar for auto-dismiss -->
+      <div class="mt-3 w-full bg-white/30 rounded-full h-1 overflow-hidden">
+        <div
+          x-data="{ width: '100%' }"
+          x-init="setTimeout(() => width = '0%', 100)"
+          :style="`width: ${width}; transition: width ${alert.duration}ms linear`"
+          :class="`h-full rounded-full ${getAlertProgressClass(alert.level)}`"
+        ></div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Persistent alert -->
+  <div
+    x-show="persistentAlert && persistentAlert.show"
+    x-transition:enter="transition ease-out duration-500 transform"
+    x-transition:enter-start="opacity-0 translate-x-full scale-95"
+    x-transition:enter-end="opacity-100 translate-x-0 scale-100"
+    x-transition:leave="transition ease-in duration-300 transform"
+    x-transition:leave-start="opacity-100 translate-x-0 scale-100"
+    x-transition:leave-end="opacity-0 translate-x-full scale-95"
+    x-cloak
+  >
+    <div
+      @click="dismissPersistentAlert()"
+      :class="persistentAlert ? `max-w-sm w-full backdrop-blur-sm border rounded-2xl shadow-2xl p-5 cursor-pointer hover:scale-105 transition-transform ${getAlertClasses(persistentAlert.level)}` : ''"
+    >
+      <div class="flex items-start">
+        <div
+          class="flex-shrink-0"
+          x-html="persistentAlert ? getAlertIcon(persistentAlert.level) : ''"
+        ></div>
+        <div class="ml-4 flex-1">
+          <div class="flex items-center mb-1">
+            <h4
+              :class="persistentAlert ? `text-sm font-bold ${getAlertTextClass(persistentAlert.level)}` : ''"
+              x-text="persistentAlert ? getAlertTitle(persistentAlert.level) : ''"
+            ></h4>
+          </div>
+          <p
+            :class="persistentAlert ? `text-sm ${getAlertTextClass(persistentAlert.level, true)}` : ''"
+            x-text="persistentAlert ? persistentAlert.text : ''"
+          ></p>
+        </div>
+        <div class="ml-3 flex-shrink-0">
+          <svg
+            class="h-5 w-5 text-amber-600"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Global alerts manager instance
+  let globalAlertsManager = null;
+
+  // Global function to show alerts from anywhere
+  window.showAlert = function (text, level = "info", duration = 5000) {
+    if (globalAlertsManager) {
+      globalAlertsManager.addAlert(text, level, duration);
+    } else {
+      console.warn("Alerts manager not initialized yet");
+    }
+  };
+
+  // Global function to show persistent clickable alerts
+  window.showPersistentAlert = function (
+    text,
+    level = "warning",
+    onClick = null,
+  ) {
+    if (globalAlertsManager) {
+      globalAlertsManager.addPersistentAlert(text, level, onClick);
+    } else {
+      console.warn("Alerts manager not initialized yet");
+    }
+  };
+
+  function alertsManager() {
+    return {
+      dynamicAlerts: [],
+      persistentAlert: null,
+
+      init() {
+        // Set global instance
+        globalAlertsManager = this;
+        // Poll server for alerts every 1s
+        setInterval(async () => {
+          try {
+            const response = await fetch("{{ url_for('get_alerts') }}");
+            if (response.ok) {
+              const alerts = await response.json();
+              if (Array.isArray(alerts)) {
+                alerts.forEach((alert) => {
+                  if (alert && alert.message && alert.level) {
+                    this.addAlert(alert.message, alert.level);
+                  }
+                });
+              }
+            }
+          } catch (e) {
+            // Ignore fetch errors
+          }
+        }, 1000);
+      },
+
+      addAlert(text, level = "info", duration = 5000) {
+        const alert = {
+          text: text,
+          level: level,
+          show: true,
+          duration: duration,
+          persistent: false,
+        };
+
+        this.dynamicAlerts.push(alert);
+
+        // Auto dismiss after duration
+        setTimeout(() => {
+          const index = this.dynamicAlerts.indexOf(alert);
+          if (index > -1) {
+            this.dismissAlert(index);
+          }
+        }, duration);
+      },
+
+      addPersistentAlert(text, level = "warning", onClick = null) {
+        if (this.persistentAlert && this.persistentAlert.show) {
+          return;
+        }
+
+        this.persistentAlert = {
+          text: text,
+          level: level,
+          show: true,
+          persistent: true,
+          onClick: onClick,
+        };
+      },
+
+      dismissPersistentAlert() {
+        if (this.persistentAlert) {
+          if (this.persistentAlert.onClick) {
+            this.persistentAlert.onClick();
+          }
+          this.persistentAlert.show = false;
+          setTimeout(() => {
+            this.persistentAlert = null;
+          }, 300);
+        }
+      },
+
+      dismissAlert(index) {
+        if (this.dynamicAlerts[index]) {
+          this.dynamicAlerts[index].show = false;
+          // Remove from array after animation
+          setTimeout(() => {
+            this.dynamicAlerts.splice(index, 1);
+          }, 300);
+        }
+      },
+
+      getAlertClasses(level) {
+        const classes = {
+          error: "bg-red-50/95 border-red-200 shadow-red-100",
+          warning: "bg-amber-50/95 border-amber-200 shadow-amber-100",
+          success: "bg-emerald-50/95 border-emerald-200 shadow-emerald-100",
+          info: "bg-blue-50/95 border-blue-200 shadow-blue-100",
+        };
+        return classes[level] || classes.info;
+      },
+
+      getAlertTextClass(level, isDescription = false) {
+        const classes = {
+          error: isDescription ? "text-red-700" : "text-red-800",
+          warning: isDescription ? "text-amber-700" : "text-amber-800",
+          success: isDescription ? "text-emerald-700" : "text-emerald-800",
+          info: isDescription ? "text-blue-700" : "text-blue-800",
+        };
+        return classes[level] || classes.info;
+      },
+
+      getAlertButtonClass(level) {
+        const classes = {
+          error: "text-red-400 hover:text-red-600 hover:bg-red-100",
+          warning: "text-amber-400 hover:text-amber-600 hover:bg-amber-100",
+          success:
+            "text-emerald-400 hover:text-emerald-600 hover:bg-emerald-100",
+          info: "text-blue-400 hover:text-blue-600 hover:bg-blue-100",
+        };
+        return classes[level] || classes.info;
+      },
+
+      getAlertProgressClass(level) {
+        const classes = {
+          error: "bg-red-400",
+          warning: "bg-amber-400",
+          success: "bg-emerald-400",
+          info: "bg-blue-400",
+        };
+        return classes[level] || classes.info;
+      },
+
+      getAlertTitle(level) {
+        const titles = {
+          error: "Error",
+          warning: "Warning",
+          success: "Success",
+          info: "Info",
+        };
+        return titles[level] || titles.info;
+      },
+
+      getAlertIcon(level) {
+        const icons = {
+          error: `<div class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
+            <svg class="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+          </div>`,
+          warning: `<div class="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center shadow-lg">
+            <svg class="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+          </div>`,
+          success: `<div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+            <svg class="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+          </div>`,
+          info: `<div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+            <svg class="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+          </div>`,
+        };
+        return icons[level] || icons.info;
+      },
+    };
+  }
+</script>

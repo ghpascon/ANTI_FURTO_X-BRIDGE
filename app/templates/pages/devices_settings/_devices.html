@@ -1,0 +1,157 @@
+<div x-data="devicesList()" x-init="init()">
+  <div x-show="loading" class="py-3 text-center text-gray-500">
+    Loading devices…
+  </div>
+
+  <div x-show="!loading" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <template x-for="device in devices" :key="device.name">
+      {% include 'pages/devices_settings/_device_row.html' %}
+    </template>
+  </div>
+
+  <div
+    x-show="!loading && devices.length === 0"
+    class="py-6 text-center text-gray-400"
+  >
+    No devices found.
+  </div>
+  <!-- Toast -->
+  <div
+    class="fixed top-4 right-4 z-50"
+    x-show="toast.visible"
+    x-transition.opacity
+  >
+    <div
+      :class="toast.type === 'success' ? 'bg-green-600' : (toast.type === 'error' ? 'bg-red-600' : 'bg-gray-800')"
+      class="text-white px-4 py-2 rounded shadow"
+    >
+      <span x-text="toast.message"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  function devicesList() {
+    return {
+      devices: [],
+      loading: false,
+      toast: { visible: false, message: "", type: "" },
+      _fetching: false,
+      async init() {
+        await this.loadDevices(true);
+        // Listen for create/update events from modal
+        window.addEventListener("device-created", () => {
+          this.loadDevices(true);
+        });
+        window.addEventListener("device-updated", () => {
+          this.loadDevices(true);
+        });
+        window.addEventListener("show-toast", (e) => {
+          this.showToast(e.detail?.message || "", e.detail?.type || "info");
+        });
+        setInterval(() => {
+          if (!this._fetching) this.loadDevices(false);
+        }, 1000);
+      },
+
+      showToast(message, type = "info") {
+        this.toast.message = message;
+        this.toast.type = type;
+        this.toast.visible = true;
+        setTimeout(() => {
+          this.toast.visible = false;
+        }, 3500);
+      },
+
+      async editDevice(deviceName) {
+        try {
+          const res = await fetch(
+            '{{ url_for("get_device_config", device_name="__DEVICENAME__") }}'.replace(
+              "__DEVICENAME__",
+              encodeURIComponent(deviceName),
+            ),
+          );
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            alert(data.message || "Failed to load device config");
+            return;
+          }
+          const config = await res.json();
+          // Dispatch a global event that the create/update modal listens to
+          window.dispatchEvent(
+            new CustomEvent("edit-device", {
+              detail: { name: deviceName, config },
+            }),
+          );
+        } catch (err) {
+          alert("Error loading device config: " + err);
+        }
+      },
+
+      async loadDevices(force = false) {
+        if (this._fetching) return;
+        this._fetching = true;
+        if (force || this.devices.length === 0) this.loading = true;
+        try {
+          const res = await fetch('{{ url_for("get_devices_info") }}');
+          if (res.ok) {
+            const data = await res.json();
+            this.devices = Array.isArray(data) ? data : [];
+          } else {
+            console.error("Failed to load devices, status:", res.status);
+            if (force) this.devices = [];
+          }
+        } catch (err) {
+          console.error("Error loading devices:", err);
+          if (force) this.devices = [];
+        } finally {
+          this.loading = false;
+          this._fetching = false;
+        }
+      },
+
+      async deleteDevice(deviceName) {
+        if (!confirm(`Delete device '${deviceName}'?`)) return;
+        try {
+          const res = await fetch(
+            `{{ url_for('delete_device', device_name='__DEVICENAME__') }}`.replace(
+              "__DEVICENAME__",
+              encodeURIComponent(deviceName),
+            ),
+            { method: "DELETE" },
+          );
+          if (res.ok) {
+            // Remove from local list immediately for responsiveness
+            this.devices = this.devices.filter((d) => d.name !== deviceName);
+            // Notify user and other components
+            if (window.showAlert) {
+              window.showAlert("Device deleted", "success", 3000);
+            }
+            window.dispatchEvent(
+              new CustomEvent("device-deleted", {
+                detail: { name: deviceName },
+              }),
+            );
+          } else {
+            const data = await res.json().catch(() => ({}));
+            if (window.showAlert) {
+              window.showAlert(
+                data.message || "Failed to delete device",
+                "error",
+                5000,
+              );
+            } else {
+              alert(data.message || "Failed to delete device");
+            }
+          }
+        } catch (err) {
+          if (window.showAlert) {
+            window.showAlert("Error deleting device: " + err, "error", 5000);
+          } else {
+            alert("Error deleting device: " + err);
+          }
+        }
+      },
+    };
+  }
+</script>

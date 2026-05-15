@@ -1,0 +1,108 @@
+[tool.poetry]
+name = "x-bridge"
+version = "8.0.3"
+description = "Conector RFID SMARTX"
+authors = ["Gabriel Henrique Pascon <gh.pascon@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.15"
+fastapi = "0.110.0"
+uvicorn = "0.29.0"
+jinja2 = "3.1.3"
+"python-multipart" = "0.0.9"
+itsdangerous = "2.1.2"
+passlib = {version = "1.7.4", extras = ["bcrypt"]}
+pygame = "2.6.1"
+httpx = "0.28.1"
+gmqtt = ">=0.7.0,<0.8.0"
+"prometheus-fastapi-instrumentator" = ">=7.1.0,<8.0.0"
+alembic = ">=1.17.2,<2.0.0"
+pillow = ">=12.1.0,<13.0.0"
+pystray = ">=0.19.5,<0.20.0"
+toml = ">=0.10.2,<0.11.0"
+"mysql-connector-python" = "=9.6.0"
+"smartx-rfid" = "10.0.0"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[[tool.poetry.source]]
+name = "pypi-simple"
+url = "https://pypi.org/simple"
+priority = "primary"
+
+[tool.poetry.group.dev.dependencies]
+tomli = "^2.2.1"
+ruff = "^0.8.0"
+pyinstaller = "^6.10.0"
+pytest = { version = "^7.4.0" }
+
+
+[tool.ruff]
+# Configuração geral
+line-length = 100
+target-version = "py311"
+extend-include = ["*.pyi"]
+
+lint.ignore = [
+    "E203",    # compatível com formatter (slice spacing)
+    "E501",    # line too long (handled by formatter)
+    "S101",    # use of assert (comum em testes)
+    "S104",    # hardcoded bind all interfaces (comum em desenvolvimento)
+    "S105",    # hardcoded password string (pode ser muito restritivo)
+    "S106",    # hardcoded password argument (pode ser muito restritivo)
+    "S107",    # hardcoded password default (pode ser muito restritivo)
+    "TRY003",  # avoid specifying long messages outside exception class
+    "PLR0913", # too many arguments
+    "PLR0912", # too many branches
+    "PLR0915", # too many statements
+    "PLR2004", # magic value used in comparison
+]
+
+# Configurações por arquivo (equivalente ao per-file-ignores do flake8)
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # unused imports
+"**/migrations/**" = ["ALL"]  # ignorar regras em migrações
+"tests/**" = ["S101", "PLR2004"]  # permitir asserts e magic numbers em testes
+
+[tool.ruff.format]
+# Configuração do formatter (equivalente ao Black)
+quote-style = "single"
+indent-style = "tab"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+
+[tool.ruff.lint.isort]
+# Configuração do import sorting (equivalente ao isort)
+combine-as-imports = true
+force-single-line = false
+force-wrap-aliases = true
+split-on-trailing-comma = true
+
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "asyncio: marks tests as asyncio tests",
+]
+filterwarnings = [
+    "ignore::Warning"
+]

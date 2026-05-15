@@ -1,0 +1,157 @@
+<!-- Tags Table Widget -->
+<div class="bg-white rounded-lg shadow border p-4 flex flex-col w-full h-[75vh]" x-data="tagDetailsTable()">
+  <div class="justify-between flex items-center mb-4 flex-shrink-0">
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('index') }}"
+        class="bg-white border border-blue-300 hover:bg-blue-50 text-blue-700 px-4 py-2 rounded text-sm font-medium">
+        EPCs
+      </a>
+      <a href="{{ url_for('gtin') }}"
+        class="bg-white border border-blue-300 hover:bg-blue-50 text-blue-700 px-4 py-2 rounded text-sm font-medium">
+        GTIN
+      </a>
+      <span class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium">
+        All
+      </span>
+      <h4 class="text-lg font-semibold ml-2">
+        Tags (<span x-text="tags.length"></span>)
+      </h4>
+    </div>
+
+    <label class="flex items-center gap-2 text-sm text-gray-600">
+      <span>Limit</span>
+      <select x-model="selectedLimit" @change="onLimitChange()"
+        class="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900">
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+        <option value="all">All</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="border rounded overflow-hidden flex-1">
+    <div class="overflow-x-auto overflow-y-auto h-full">
+      <table x-show="headers.length > 0" class="min-w-full border-collapse">
+        <thead class="bg-gray-50 sticky top-0">
+          <tr>
+            <template x-for="header in headers" :key="header">
+              <th
+                class="px-2 py-2 text-left whitespace-nowrap border-b-2 border-gray-200 font-mono text-xs font-semibold text-gray-900"
+                x-text="header.replace(/_/g, ' ').toUpperCase()"></th>
+            </template>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(tag, index) in tags" :key="`tag-${index}`">
+            <tr class="border-b border-gray-200 hover:bg-gray-50">
+              <template x-for="(header, headerIndex) in headers" :key="`cell-${index}-${headerIndex}`">
+                <td class="px-2 py-2 font-mono text-xs sm:text-sm whitespace-nowrap text-gray-900" :title="tag[header]"
+                  x-text="formatValue(tag[header], header)"></td>
+              </template>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
+      <div x-show="tags.length === 0" class="p-8 text-center text-gray-400">
+        No tags found
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function tagDetailsTable() {
+    return {
+      tags: [],
+      headers: [],
+      loadingTags: false,
+      pollHandle: null,
+      visibilityHandler: null,
+      lastTagsPayload: "",
+      selectedLimit: "50",
+
+      async init() {
+        await this.loadTags();
+        TemplateUtils.bindVisibilityPolling(this, this.loadTags, 2000);
+      },
+
+      destroy() {
+        TemplateUtils.unbindVisibilityPolling(this);
+      },
+
+      getTagsUrl() {
+        if (this.selectedLimit === "all") {
+          return "{{ url_for('get_tags') }}";
+        }
+
+        return "{{ url_for('get_n_tags', limit=999999) }}".replace(
+          "999999",
+          this.selectedLimit,
+        );
+      },
+
+      async onLimitChange() {
+        this.lastTagsPayload = "";
+        await this.loadTags();
+      },
+
+      async loadTags() {
+        if (this.loadingTags) {
+          return;
+        }
+
+        this.loadingTags = true;
+
+        try {
+          const result = await TemplateUtils.fetchJsonIfChanged(
+            this.getTagsUrl(),
+            this.lastTagsPayload,
+          );
+
+          if (result.changed) {
+            this.lastTagsPayload = result.payload;
+            const data = result.data;
+            this.tags = Array.isArray(data) ? data : data.tags || [];
+
+            // Extract headers from first tag
+            this.headers = this.tags.length > 0 ? Object.keys(this.tags[0]) : [];
+          }
+        } catch (error) {
+          console.error("Error loading tags:", error);
+        } finally {
+          this.loadingTags = false;
+        }
+      },
+
+      formatValue(value, header) {
+        if (value === null || value === undefined) {
+          return "-";
+        }
+
+        // Format timestamp to show only HMS
+        if (
+          header.toLowerCase().includes("timestamp") ||
+          header.toLowerCase().includes("first_seen") ||
+          header.toLowerCase().includes("time")
+        ) {
+          try {
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+              return date.toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              });
+            }
+          } catch (e) {
+            // If parsing fails, return original value
+          }
+        }
+
+        return value;
+      },
+    };
+  }
+</script>
