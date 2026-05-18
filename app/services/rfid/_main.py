@@ -57,7 +57,9 @@ class RfidManager:
 			self.on_tag(name=name, tag_data=event_data)
 		else:
 			if event_type == 'reading':
-				self.on_start(name=name) if event_data else self.on_stop(name=name)
+				self.controller.on_start(name=name) if event_data else self.controller.on_stop(
+					name=name
+				)
 
 			self.controller.on_event(name=name, event_type=event_type, event_data=event_data)
 
@@ -72,15 +74,6 @@ class RfidManager:
 		elif tag is not None:
 			self.controller.on_existing_tag(name=name, tag=tag)
 		return new_tag, tag
-
-	def on_start(self, name: str):
-		logging.info(f'[ START ] {name}')
-		self.tags.remove_tags_by_device(device=name)
-		self.controller.on_start(device=name)
-
-	def on_stop(self, name: str):
-		logging.info(f'[ STOP ] {name}')
-		self.controller.on_stop(device=name)
 
 	# [ X-SCAN]
 	def on_xscan_event(self, device_name: str, event_type: str, event_data):

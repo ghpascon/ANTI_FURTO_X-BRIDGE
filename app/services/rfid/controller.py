@@ -61,6 +61,8 @@ class Controller:
 			data = event_data.split(':', 1)[1]
 			self.treat_sensor_event(name, data)
 			return
+		if event_data == '#pong':
+			return
 		logging.info(f'[ EVENT ] {name} - {event_type}: {event_data}')
 		# asyncio.create_task(
 		# 	self.integration.on_event_integration(
@@ -69,11 +71,12 @@ class Controller:
 		# )
 
 	# [ Reading Events ]
-	def on_start(self, device: str):
-		pass
+	def on_start(self, name: str):
+		logging.info(f'[ START ] {name}')
+		# self.tags.remove_tags_by_device(device=name)
 
-	def on_stop(self, device: str):
-		pass
+	def on_stop(self, name: str):
+		logging.info(f'[ STOP ] {name}')
 
 	def start_reading_device(self, device_name: str):
 		asyncio.create_task(self.devices.start_inventory(name=device_name))
@@ -97,22 +100,22 @@ class Controller:
 			logging.info(f'Device {device_name} inventory: stopped')
 
 	# [ Tag Events ]
-	def on_new_tag(self, device_name: str, tag: dict):
-		logging.info(f'[ TAG ] {device_name} - {tag}')
+	def on_new_tag(self, name: str, tag: dict):
+		logging.info(f'[ TAG ] {name} - {tag}')
 		tag['passed'] = 'idle'
-		self.define_tag_state(device_name, tag)
+		self.define_tag_state(name, tag)
 		# asyncio.create_task(self.integration.on_tag_integration(tag=tag))
 
-	def on_existing_tag(self, device_name: str, tag: dict):
+	def on_existing_tag(self, name: str, tag: dict):
 		# if settings.ALWAYS_SEND:
 		#     asyncio.create_task(self.integration.on_tag_integration(tag=tag))
-		self.define_tag_state(device_name, tag)
+		self.define_tag_state(name, tag)
 
-	def define_tag_state(self, device_name: str, tag: dict):
+	def define_tag_state(self, name: str, tag: dict):
 		if not tag.get('passed') == 'idle':
 			return
 		ant = tag.get('ant')
-		device_state = self._get_or_create_device_state(device_name)
+		device_state = self._get_or_create_device_state(name)
 		a_group = device_state['groups'].get('A').get('antennas')
 		b_group = device_state['groups'].get('B').get('antennas')
 		if ant in a_group:
@@ -142,6 +145,8 @@ class Controller:
 				value = False
 
 			device_state['sensors_states'][sensor] = value
+
+			# logging.info(f'Device {name} - Sensor {sensor} value: {value}')
 
 			# UPDATE GROUP STATE
 			sensor_data = self.sensor_mapping.get(sensor)
